@@ -82,22 +82,20 @@ class Image(object):
         return self.image_width
 
 
-class ImageFeatureExtractor(Image):
+class MeltPoolImageProcessor(Image):
     """
     """
 
-    def __init__(self, file_path, intensity_threshold):
+    def __init__(self, file_path=None, image_matrix=np.array([None]), 
+                 meltpool_intensity_threshold=(0.8,1.0)):
         """
         """
 
-        super(ImageFeatureExtractor, self).__init__(file_path)
-        self.intensity_threshold = intensity_threshold
-        # self._isStandardize = True
-        # self._isNormalize = True
-        # self._isScaleInvariant = True
-
+        super(MeltPoolImageProcessor, self).__init__(file_path, image_matrix)
+        self.intensity_threshold = meltpool_intensity_threshold
     
-    def _extract_objectivePixelIndex(self):
+    
+    def _get_meltpool_pixel_indices(self):
         """
         Extract the indices of pixels with intensity values fallen in between the range defined by `self.intensity_threshold`. 
         """
@@ -105,9 +103,9 @@ class ImageFeatureExtractor(Image):
         indices_array_row_col = np.where(np.logical_and(self.image_matrix >= self.intensity_threshold[0], 
                                                         self.image_matrix <= self.intensity_threshold[1]))
 
-        objective_pixel_index_array = np.vstack((indices_array_row_col[0], indices_array_row_col[1])).T # [row | col]. 
+        meltpool_pixel_index_array = np.vstack((indices_array_row_col[0], indices_array_row_col[1])).T # [row | col]. 
 
-        return objective_pixel_index_array
+        return meltpool_pixel_index_array
 
 
     def _Hu_moment_invariant_computation():
@@ -117,23 +115,20 @@ class ImageFeatureExtractor(Image):
         pass
 
 
-    def extract_Area(self):
+    def get_meltpool_area(self):
         """
         """
 
-        objective_pixel_index_array = self._extract_objectivePixelIndex()
+        meltpool_pixel_index_array = self._get_meltpool_pixel_indices()
 
-        return objective_pixel_index_array.shape[0]
+        return meltpool_pixel_index_array.shape[0]
 
 
-    def extract_HuMoment(self, ):
+    def get_Hu_Moments(self):
         pass
 
 
-    def extract_ZernikeMoment(self):
+    def get_Zernike_Moments(self):
         pass
     
 
-
-class ImageTransformer(object):
-    pass
