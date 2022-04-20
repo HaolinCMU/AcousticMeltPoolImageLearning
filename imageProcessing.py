@@ -15,6 +15,7 @@ import librosa
 
 from PARAM_ML import *
 from PARAM_IMG import *
+from dataprocessing.moments import *
 
 
 class Image(object):
@@ -93,9 +94,13 @@ class MeltPoolImageProcessor(Image):
 
         super(MeltPoolImageProcessor, self).__init__(file_path, image_matrix)
         self.intensity_threshold = meltpool_intensity_threshold
+        self.meltpool_pixel_index_array = None
+        self.processed_image_matrix = None
+
+        self._extract_meltpool_pixel_indices()
     
     
-    def _get_meltpool_pixel_indices(self):
+    def _extract_meltpool_pixel_indices(self):
         """
         Extract the indices of pixels with intensity values fallen in between the range defined by `self.intensity_threshold`. 
         """
@@ -103,12 +108,25 @@ class MeltPoolImageProcessor(Image):
         indices_array_row_col = np.where(np.logical_and(self.image_matrix >= self.intensity_threshold[0], 
                                                         self.image_matrix <= self.intensity_threshold[1]))
 
-        meltpool_pixel_index_array = np.vstack((indices_array_row_col[0], indices_array_row_col[1])).T # [row | col]. 
-
-        return meltpool_pixel_index_array
+        self.meltpool_pixel_index_array = np.vstack((indices_array_row_col[0], indices_array_row_col[1])).T # [row | col]. 
 
 
-    def _Hu_moment_invariant_computation():
+    def _get_meltpool_pixel_indices(self):
+        """
+        Get the indices of pixels with intensity values fallen in between the range defined by `self.intensity_threshold`. 
+        """ 
+
+        return self.meltpool_pixel_index_array
+
+    
+    def _get_filtered_image_matrix(self):
+        """
+        """
+
+        for i in range():
+
+
+    def _Hu_moment_invariant_computation(self, ):
         """
         """
 
@@ -119,9 +137,7 @@ class MeltPoolImageProcessor(Image):
         """
         """
 
-        meltpool_pixel_index_array = self._get_meltpool_pixel_indices()
-
-        return meltpool_pixel_index_array.shape[0]
+        return self.meltpool_pixel_index_array.shape[0]
 
 
     def get_Hu_Moments(self):
