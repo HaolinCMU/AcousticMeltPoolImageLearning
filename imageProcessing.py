@@ -6,6 +6,7 @@ Created on Mon Dec  6 00:14:04 2021
 """
 
 import os
+import copy
 
 import argparse
 import numpy as np
@@ -95,9 +96,10 @@ class MeltPoolImageProcessor(Image):
         super(MeltPoolImageProcessor, self).__init__(file_path, image_matrix)
         self.intensity_threshold = meltpool_intensity_threshold
         self.meltpool_pixel_index_array = None
-        self.processed_image_matrix = None
+        self.meltpool_filtered_image = None
 
         self._extract_meltpool_pixel_indices()
+        self._filter_meltpool_image()
     
     
     def _extract_meltpool_pixel_indices(self):
@@ -110,25 +112,42 @@ class MeltPoolImageProcessor(Image):
 
         self.meltpool_pixel_index_array = np.vstack((indices_array_row_col[0], indices_array_row_col[1])).T # [row | col]. 
 
+    
+    def _filter_meltpool_image(self):
+        """
+        """
+        
+        meltpool_filtered_image_matrix = np.zeros(shape=self.image_matrix.shape)
+        
+        for i in range(self.meltpool_pixel_index_array.shape[0]):
+            row_ind_temp = self.meltpool_pixel_index_array[i,0]
+            col_ind_temp = self.meltpool_pixel_index_array[i,1]
+            
+            meltpool_filtered_image_matrix[row_ind_temp,col_ind_temp] = self.image_matrix[row_ind_temp,col_ind_temp]
+        
+        self.meltpool_filtered_image = copy.deepcopy(meltpool_filtered_image_matrix)
 
+    
     def _get_meltpool_pixel_indices(self):
         """
         Get the indices of pixels with intensity values fallen in between the range defined by `self.intensity_threshold`. 
         """ 
 
         return self.meltpool_pixel_index_array
-
     
-    def _get_filtered_image_matrix(self):
+    
+    def _get_meltpool_filtered_image(self):
         """
         """
+        
+        return self.meltpool_filtered_image
+        
 
-        for i in range():
-
-
-    def _Hu_moment_invariant_computation(self, ):
+    def _Hu_moment_invariant_computation(self, feature_num=2):
         """
         """
+        
+        
 
         pass
 
