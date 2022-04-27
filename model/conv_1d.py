@@ -8,7 +8,8 @@ Created on Thu Jan 27 14:53:02 2022
 
 import os
 import sys
-sys.path.append("..")
+DIR_ABS = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(DIR_ABS))
 
 import numpy as np
 import torch
@@ -19,7 +20,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from torch.utils.data import Dataset, DataLoader
-from PARAM_ML import *
+
+from PARAM.ML import *
 
 
 class Conv_1d_neural_net(nn.Module):
