@@ -16,7 +16,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from torch.utils.data import Dataset, DataLoader
-from PARAM_ML import *
+from PARAM.ML import *
 
 
 class Conv_1d_neural_net(nn.Module):
