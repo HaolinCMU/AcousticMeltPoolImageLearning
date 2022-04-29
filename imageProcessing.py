@@ -7,6 +7,7 @@ Created on Mon Dec  6 00:14:04 2021
 
 
 import os
+import glob
 import copy
 
 import argparse
@@ -18,6 +19,7 @@ from cmath import nan
 from scipy.stats import skew, kurtosis
 
 from PARAM.IMG import *
+from PARAM.BASIC import *
 from dataprocessing import *
 
 
@@ -316,7 +318,7 @@ class Frame(imgBasics.Image):
         keyword: 'meltpool' or 'total' or 'other'. 
         """
 
-        aligned_version = copy.deepcopy(self.image_matrix)
+        aligned_version = copy.deepcopy(self.blank_version())
 
         if not self._isEmpty:
             if keyword == 'meltpool': 
@@ -370,7 +372,7 @@ class Frame(imgBasics.Image):
 
 
     @staticmethod
-    def Zernike_Moments(image_matrix, feature_ind_list=[]):
+    def Zernike_moments(image_matrix, feature_ind_list=[]):
         """
         """
         
@@ -381,7 +383,34 @@ def main():
     """
     """
 
-    file_path = 'C:/Users/hlinl/OneDrive/Desktop/New folder/Data/raw_image_data/Layer012_Section_02_S0001/Layer012_Section_02_S0001002368.png'
+    image_data_directory = os.path.join(DATA_DIRECTORY, IMAGE_DATA_SUBDIR)
+    raw_image_folder_list = os.listdir(image_data_directory)
+
+    for raw_image_folder in raw_image_folder_list:
+        frame_file_path_temp = glob.glob(os.path.join(image_data_directory, raw_image_folder, 
+                                                      "*.{}".format(IMAGE_EXTENSION)))
+        frame_temp = Frame(file_path=frame_file_path_temp, intensity_threshold=INTENSITY_THRESHOLD)
+
+        meltpool_aligned_image_temp = frame_temp.meltpool_aligned_version(keyword='meltpool')
+        hu_moments_array_temp = frame_temp.Hu_moments(image_matrix=frame_temp.thresheld_image(), 
+                                                      feature_ind_list=HU_MOMENTS_FEATURE_IND_LIST)
+        zernike_moments_array_temp = frame_temp.Zernike_moments(image_matrix=frame_temp.thresheld_image(), 
+                                                                feature_ind_list=HU_MOMENTS_FEATURE_IND_LIST)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    file_path = 'C:/Users/hlinl/OneDrive/Desktop/New folder/Data/raw_image_data/Layer012_Section_02_S0001/Layer012_Section_02_S0001002270.png'
     frame = Frame(file_path=file_path, intensity_threshold=INTENSITY_THRESHOLD)
 
     meltpool_aligned_image = frame.meltpool_aligned_version(keyword='meltpool')
