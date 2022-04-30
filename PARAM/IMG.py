@@ -17,5 +17,5 @@ DBSCAN_MIN_PTS = 5
 # PCA PARAM - one frame. 
 PC_NUM_FRAME = 2
 PCA_MODE_FRAME = 'transpose'
-FRAME_ALIGN_MODE = 'principal'
+FRAME_ALIGN_MODE = 'principal' # 'principal' or 'secondary' or 'other'. 
 FRAME_REALIGN_AXIS_VECT = np.array([0.,1.])

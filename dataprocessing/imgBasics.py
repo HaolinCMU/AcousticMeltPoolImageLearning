@@ -35,6 +35,19 @@ def rotate_2D(data_matrix, theta, center_pt):
     return vector_matrix_rotated + center_pt
 
 
+def projection_along_axis(pixel_index_array, origin_pt, axis_vect):
+    """
+    `pixel_index_array`: shape=(n_sample, n_feature). 
+    `origin_pt`: shape=(n_feature,). 
+    `axis_vect`: shape=(n_feature,). 
+    """
+    
+    vect_array = copy.deepcopy(pixel_index_array - origin_pt)
+    inner_product_array = copy.deepcopy(vect_array @ axis_vect.reshape(-1,1)).reshape(-1)
+    
+    return inner_product_array
+
+
 class Image(object):
     """
     Generate an image object from a given image file path. 
@@ -106,3 +119,13 @@ class Image(object):
         """
 
         return np.ones(shape=(self.image_length, self.image_width)) * self._default_background_value
+    
+
+    def refine_asper_threshold(self, image_matrix, threshold):
+        """
+        """
+        
+        image_matrix_refined = copy.deepcopy(image_matrix)
+        image_matrix_refined[image_matrix_refined < threshold] = self._default_background_value
+        
+        return image_matrix_refined
