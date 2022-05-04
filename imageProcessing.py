@@ -527,7 +527,7 @@ if __name__ == "__main__":
     
     # Test lines. 
     
-    file_path = 'C:/Users/hlinl/Desktop/New folder/data/raw_image_data/Layer012_Section_02_S0001/Layer012_Section_02_S0001001774.png'
+    file_path = 'C:/Users/hlinl/OneDrive/Desktop/New folder/Data/raw_image_data/Layer037_Section_07_S0001/Layer037_Section_07_S0001000388.png'
     frame = Frame(file_path=file_path, intensity_threshold=INTENSITY_THRESHOLD)
 
     meltpool_straightened_image = frame.straighten('meltpool', FRAME_ALIGN_MODE, FRAME_REALIGN_AXIS_VECT)
@@ -543,20 +543,33 @@ if __name__ == "__main__":
     
     plt.figure()
     plt.imshow(frame.image_matrix, cmap='gray')
+    # plt.annotate("", xy=(frame.meltpool_center_pt[0], frame.meltpool_center_pt[1]), 
+    #              xytext=(frame._meltpool_principal_axes[1,0], frame._meltpool_principal_axes[0,0]),
+    #              arrowprops=dict(arrowstyle="->"), c='r')
+    # plt.annotate("", xy=(frame.meltpool_center_pt[1], frame.meltpool_center_pt[0]), 
+    #              xytext=(frame._meltpool_principal_axes[1,1], frame._meltpool_principal_axes[0,1]),
+    #              arrowprops=dict(arrowstyle="->"), c='r')
+    
     
     plt.figure()
     plt.imshow(meltpool_straightened_image, cmap='gray')
+    # plt.annotate("", xy=(frame.length()/2., frame.width()/2.), 
+    #              xytext=(frame._meltpool_principal_axes[0,0], frame._meltpool_principal_axes[1,0]),
+    #              arrowprops=dict(arrowstyle="->"), c='r')
+    # plt.annotate("", xy=(frame.length()/2., frame.width()/2.), 
+    #              xytext=(frame._meltpool_principal_axes[0,1], frame._meltpool_principal_axes[1,1]),
+    #              arrowprops=dict(arrowstyle="->"), c='r')
     
-    plt.figure()
-    plt.imshow(im, cmap='gray')
+    # plt.figure()
+    # plt.imshow(im, cmap='gray')
     
     plt.figure()
     plt.imshow(meltpool_straightened_image, cmap='gray')
     plt.scatter(contours[i][:,0,0], contours[i][:,0,1], c=color, s=size)
     
-    plt.figure()
-    plt.imshow(im, cmap='gray')
-    plt.scatter(contours[i][:,0,0], contours[i][:,0,1], c=color, s=size)
+    # plt.figure()
+    # plt.imshow(im, cmap='gray')
+    # plt.scatter(contours[i][:,0,0], contours[i][:,0,1], c=color, s=size)
     
     
     
