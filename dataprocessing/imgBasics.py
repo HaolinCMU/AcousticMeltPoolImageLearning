@@ -8,6 +8,7 @@ Created on Thu Apr 21 00:19:37 2022
 
 import os
 import copy
+import cv2
 import sys
 DIR_ABS = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(DIR_ABS))
