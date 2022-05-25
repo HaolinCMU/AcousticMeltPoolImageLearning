@@ -1,0 +1,651 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri May 13 14:34:53 2022
+
+@author: hlinl
+"""
+
+
+import os
+import sys
+DIR_ABS = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(DIR_ABS))
+
+import copy
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.utils
+import torch.nn.functional as F
+import tensorflow as tf
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+from tensorflow import keras
+from tensorflow.keras import layers
+from torch.utils.data import Dataset, DataLoader
+from torch.autograd import Variable
+
+from PARAM import *
+
+
+class Flatten(nn.Module):
+    """
+    """
+
+    def forward(self, input):
+        return input.view(input.size()[0], -1)
+
+
+class UnFlatten(nn.Module):
+    """
+    """
+
+    def forward(self, input, size):
+        return input.view(input.size()[0], size, 1, 1)
+
+
+class Encoder(nn.Module):
+    """
+    """
+
+    pass
+
+
+class Decoder(nn.Module):
+    """
+    """
+
+    pass
+
+
+class AutoEncoder_Linear(nn.Module):
+    """
+    """
+
+    def __init__(self):
+        """
+        """
+
+        super(AutoEncoder_Linear, self).__init__()
+
+        pass
+
+
+class AutoEncoder_Conv(nn.Module):
+    """
+    """
+
+    def __init__(self, encoder_layer_num, decoder_layer_num, ):
+        """
+        """
+
+        super(AutoEncoder_Conv, self).__init__()
+
+        pass
+
+
+class VAE_Linear(nn.Module):
+    """
+    """
+
+    def __init__(self):
+        """
+        """
+
+        super(VAE_Linear, self).__init__()
+
+        pass
+
+
+class VAE_Conv(nn.Module):
+    """
+    """
+
+    def __init__(self, input_dim, latent_dim, enc_archi_dict, dec_archi_dict, 
+                 latent_distrib='Gaussian'):
+        """
+        """
+
+        super(VAE_Conv, self).__init__()
+        self.input_dim = input_dim
+        self.latent_dim = latent_dim
+        self.enc_archi_dict = copy.deepcopy(enc_archi_dict)
+        self.dec_archi_dict = copy.deepcopy(dec_archi_dict)
+        self.latent_distrib = latent_distrib
+
+        # Encoder. 
+        self._enc_is_convBatchNorm = self.enc_archi_dict['is_convBatchNorm']
+        self._enc_is_convPooling = self.enc_archi_dict['is_convPooling']
+        self._enc_is_convDropout = self.enc_archi_dict['is_convDropout']
+
+        self._enc_conv_layer_num = self.enc_archi_dict['conv_layer_num']
+        self._enc_conv_kernel_sizes = self.enc_archi_dict['conv_kernel_sizes'] # A list or array. 
+        self._enc_conv_paddings = self.enc_archi_dict['conv_paddings'] # A list or array. 
+        self._enc_conv_strides = self.enc_archi_dict['conv_strides'] # A list or array. 
+        self._enc_conv_dilation = self.enc_archi_dict['conv_dilation']
+        self._enc_conv_dropout_ratio = self.enc_archi_dict['conv_dropout_ratio']
+
+        self._enc_poolingLayer = self.enc_archi_dict['poolingLayer'] # Pooling layer type. 
+        self._enc_pooling_kernel_size = self.enc_archi_dict['pooling_kernel_size'] # A single number. 
+        self._enc_pooling_padding = self.enc_archi_dict['pooling_padding']
+        self._enc_pooling_stride = self.enc_archi_dict['pooling_stride']
+        
+        self._enc_conv_channel_num_init = self.enc_archi_dict['conv_channel_num_init']
+        self._enc_conv_channel_num_multiplier = self.enc_archi_dict['conv_channel_num_multiplier']
+        self._enc_conv_predef_channel_num_list = self.enc_archi_dict['conv_predef_channel_num_list']
+
+        self._enc_is_mlpBatchNorm = self.enc_archi_dict['is_mlpBatchNorm']
+        self._enc_is_mlpDropout = self.enc_archi_dict['is_mlpDropout']
+
+        self._enc_mlp_layer_num = self.enc_archi_dict['mlp_layer_num']
+
+
+
+        
+        # self.mlp_layer_num = mlp_layer_num
+        # self._is_mlpBatchNorm = IS_MLP_BATCHNORM
+        # self._is_mlpDropout = IS_MLP_DROPOUT
+        self._mlp_1st_layer_num = ML_VAE.MLP_FIRST_LAYER_NUM
+        self._mlp_layer_num_decay_div = ML_VAE.MLP_LAYER_NUM_DECAY_DIV
+        
+        self._activationLayer = ML_VAE.ACTIVATION_LAYER
+
+
+        self.hidden_1 = nn.Conv2d()
+
+        pass
+
+
+# class VAE_Conv_test(nn.Module):
+#     """
+#     Only for validation. 
+#     """
+
+#     def __init__(self):
+#         """
+#         """
+
+#         super(VAE_Conv_test, self).__init__()
+        
+#         # Encoder. 
+#         self._enc_conv_hidden_1 = nn.Sequential(nn.Conv2d(1, 16, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 ) # (512, 512, 1) -> (256, 256, 16). 
+#         self._enc_conv_hidden_2 = nn.Sequential(nn.Conv2d(16, 32, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 ) # (256, 256, 16) -> (128, 128, 32). 
+#         self._enc_conv_hidden_3 = nn.Sequential(nn.Conv2d(32, 64, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 ) # (128, 128, 32) -> (64, 64, 64). 
+#         self._enc_conv_hidden_4 = nn.Sequential(nn.Conv2d(64, 128, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 ) # (64, 64, 64) -> (32, 32, 128). 
+#         self._enc_conv_hidden_5 = nn.Sequential(nn.Conv2d(128, 256, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 ) # (32, 32, 128) -> (16, 16, 256). 
+#         self._enc_conv_hidden_6 = nn.Sequential(nn.Conv2d(256, 512, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 ) # (16, 16, 256) -> (8, 8, 512).  
+#         self._enc_conv_hidden_7 = nn.Sequential(nn.Conv2d(512, 1024, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 ) # (8, 8, 512) -> (4, 4, 1024).
+#         self._enc_GAP = nn.AvgPool2d((4,4), 1) # GAP, (4, 4, 1024) -> (1, 1, 1024).
+
+#         self._encoder = nn.Sequential(self._enc_conv_hidden_1, 
+#                                       self._enc_conv_hidden_2, 
+#                                       self._enc_conv_hidden_3, 
+#                                       self._enc_conv_hidden_4, 
+#                                       self._enc_conv_hidden_5, 
+#                                       self._enc_conv_hidden_6, 
+#                                       self._enc_conv_hidden_7, 
+#                                       self._enc_GAP)
+
+#         # Flatten(). 
+#         self._latent_dim = 64
+
+#         # Bottleneck
+#         self._enc_output_mu = nn.Linear(1024, self._latent_dim)
+#         self._enc_output_logvar = nn.Linear(1024, self._latent_dim)
+#         self._dec_fc_hidden_1 = nn.Sequential(nn.Linear(self._latent_dim, 1024),
+#                                               # nn.Dropout(0.5)
+#                                               ) # (latent_dim, ) -> (1024, ). 
+
+#         # Unflatten(). 
+
+#         # Decoder. 
+#         self._dec_deconv_hidden_1 = nn.Sequential(nn.ConvTranspose2d(1024, 1024, kernel_size=(4,4)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   ) # (1, 1, 1024) -> (4, 4, 1024).
+#         self._dec_deconv_hidden_2 = nn.Sequential(nn.ConvTranspose2d(1024, 512, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   ) # (4, 4, 1024) -> (8, 8, 512). 
+#         self._dec_deconv_hidden_3 = nn.Sequential(nn.ConvTranspose2d(512, 256, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   ) # (8, 8, 512) -> (16, 16, 256). 
+#         self._dec_deconv_hidden_4 = nn.Sequential(nn.ConvTranspose2d(256, 128, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   ) # (16, 16, 256) -> (32, 32, 128). 
+#         self._dec_deconv_hidden_5 = nn.Sequential(nn.ConvTranspose2d(128, 64, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   ) # (32, 32, 128) -> (64, 64, 64). 
+#         self._dec_deconv_hidden_6 = nn.Sequential(nn.ConvTranspose2d(64, 32, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   ) # (64, 64, 64) -> (128, 128, 32). 
+#         self._dec_deconv_hidden_7 = nn.Sequential(nn.ConvTranspose2d(32, 16, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   ) # (128, 128, 32) -> (256, 256, 16). 
+#         self._dec_deconv_hidden_8 = nn.Sequential(nn.ConvTranspose2d(16, 1, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+#                                                   nn.Sigmoid()) # (256, 256, 16) -> (512, 512, 1). 
+#         self._decoder = nn.Sequential(self._dec_deconv_hidden_1,
+#                                       self._dec_deconv_hidden_2,
+#                                       self._dec_deconv_hidden_3,
+#                                       self._dec_deconv_hidden_4,
+#                                       self._dec_deconv_hidden_5,
+#                                       self._dec_deconv_hidden_6,
+#                                       self._dec_deconv_hidden_7,
+#                                       self._dec_deconv_hidden_8)
+    
+    
+#     def encoder(self, x):
+#         """
+#         """
+
+#         output = self._encoder(x)
+#         output = output.view(output.size(0), -1) # Flatten. 
+
+#         mu = self._enc_output_mu(output)
+#         logvar = self._enc_output_logvar(output)
+
+#         return mu, logvar
+    
+
+#     def reparameterize(self, mu, logvar):
+#         """
+#         """
+
+#         std = logvar.mul(0.5).exp_()
+#         eps = std.data.new(std.size()).normal_()
+
+#         return eps.mul(std).add_(mu)
+
+#         # std = torch.exp(0.5*logvar)
+#         # eps = torch.randn_like(std)
+
+#         # return mu + eps*std
+
+
+#     def decoder(self, latent):
+#         """
+#         """
+
+#         output = self._dec_fc_hidden_1(latent) # (latent_dim, ) -> (1024, ). 
+#         output = output.view(output.size(0), 1024, 1, 1) # Flatten. (1024, ) -> (1, 1, 1024). 
+
+#         output = self._decoder(output)
+
+#         return output # The generated batch of image. 
+
+
+#     def forward(self, x):
+#         """
+#         """
+
+#         mu, logvar = self.encoder(x)
+#         latent = self.reparameterize(mu, logvar)
+#         output = self.decoder(latent)
+
+#         return output, mu, logvar, latent
+    
+
+#     @property
+#     def latent_dim(self):
+#         """
+#         """
+
+#         return self._latent_dim
+
+
+class VAE_Conv_test(nn.Module):
+    """
+    Only for validation. 
+    """
+
+    def __init__(self):
+        """
+        """
+
+        super(VAE_Conv_test, self).__init__()
+        
+        # Encoder. 
+        self._enc_conv_hidden_1 = nn.Sequential(nn.Conv2d(1, 16, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+                                                ML_VAE.ACTIVATION_LAYER,
+                                                ) # (512, 512, 1) -> (256, 256, 16). 
+        self._enc_conv_hidden_2 = nn.Sequential(nn.Conv2d(16, 32, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+                                                ML_VAE.ACTIVATION_LAYER,
+                                                ) # (256, 256, 16) -> (128, 128, 32). 
+        self._enc_conv_hidden_3 = nn.Sequential(nn.Conv2d(32, 64, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+                                                ML_VAE.ACTIVATION_LAYER,
+                                                ) # (128, 128, 32) -> (64, 64, 64). 
+        self._enc_conv_hidden_4 = nn.Sequential(nn.Conv2d(64, 128, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+                                                ML_VAE.ACTIVATION_LAYER,
+                                                ) # (64, 64, 64) -> (32, 32, 128). 
+        self._enc_conv_hidden_5 = nn.Sequential(nn.Conv2d(128, 256, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+                                                ML_VAE.ACTIVATION_LAYER,
+                                                ) # (32, 32, 128) -> (16, 16, 256). 
+        self._enc_conv_hidden_6 = nn.Sequential(nn.Conv2d(256, 512, kernel_size=(4,4), stride=(2,2), padding=(1,1)), 
+                                                ML_VAE.ACTIVATION_LAYER,
+                                                ) # (16, 16, 256) -> (8, 8, 512).  
+        self._enc_GAP = nn.AvgPool2d((8,8), 1) # GAP, (8, 8, 512) -> (1, 1, 512).
+
+        self._encoder = nn.Sequential(self._enc_conv_hidden_1, 
+                                      self._enc_conv_hidden_2, 
+                                      self._enc_conv_hidden_3, 
+                                      self._enc_conv_hidden_4, 
+                                      self._enc_conv_hidden_5, 
+                                      self._enc_conv_hidden_6, 
+                                      self._enc_GAP)
+
+        # Flatten(). 
+        self._latent_dim = 2
+
+        # Bottleneck
+        self._enc_output_mu = nn.Linear(512, self._latent_dim)
+        self._enc_output_logvar = nn.Linear(512, self._latent_dim)
+        self._dec_fc_hidden_1 = nn.Sequential(nn.Linear(self._latent_dim, 512),
+                                              # nn.Dropout(0.5)
+                                              ) # (16, ) -> (512, ). 
+
+        # Unflatten(). 
+
+        # Decoder. 
+        self._dec_deconv_hidden_1 = nn.Sequential(nn.ConvTranspose2d(512, 512, kernel_size=(8,8)),
+                                                  ML_VAE.ACTIVATION_LAYER,
+                                                  ) # (1, 1, 512) -> (8, 8, 512). 
+        self._dec_deconv_hidden_2 = nn.Sequential(nn.ConvTranspose2d(512, 256, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+                                                  ML_VAE.ACTIVATION_LAYER,
+                                                  ) # (8, 8, 512) -> (16, 16, 256). 
+        self._dec_deconv_hidden_3 = nn.Sequential(nn.ConvTranspose2d(256, 128, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+                                                  ML_VAE.ACTIVATION_LAYER,
+                                                  ) # (16, 16, 256) -> (32, 32, 128). 
+        self._dec_deconv_hidden_4 = nn.Sequential(nn.ConvTranspose2d(128, 64, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+                                                  ML_VAE.ACTIVATION_LAYER,
+                                                  ) # (32, 32, 128) -> (64, 64, 64). 
+        self._dec_deconv_hidden_5 = nn.Sequential(nn.ConvTranspose2d(64, 32, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+                                                  ML_VAE.ACTIVATION_LAYER,
+                                                  ) # (64, 64, 64) -> (128, 128, 32). 
+        self._dec_deconv_hidden_6 = nn.Sequential(nn.ConvTranspose2d(32, 16, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+                                                  ML_VAE.ACTIVATION_LAYER,
+                                                  ) # (128, 128, 32) -> (256, 256, 16). 
+        self._dec_deconv_hidden_7 = nn.Sequential(nn.ConvTranspose2d(16, 1, kernel_size=(4,4), stride=(2,2), padding=(1,1)),
+                                                  nn.Sigmoid()) # (256, 256, 16) -> (512, 512, 1). 
+        self._decoder = nn.Sequential(self._dec_deconv_hidden_1,
+                                      self._dec_deconv_hidden_2,
+                                      self._dec_deconv_hidden_3,
+                                      self._dec_deconv_hidden_4,
+                                      self._dec_deconv_hidden_5,
+                                      self._dec_deconv_hidden_6,
+                                      self._dec_deconv_hidden_7)
+    
+    
+    def encoder(self, x):
+        """
+        """
+
+        output = self._encoder(x)
+        output = output.view(output.size(0), -1) # Flatten. 
+
+        mu = self._enc_output_mu(output)
+        logvar = self._enc_output_logvar(output)
+
+        return mu, logvar
+    
+
+    def reparameterize(self, mu, logvar):
+        """
+        """
+
+        std = logvar.mul(0.5).exp_()
+        eps = std.data.new(std.size()).normal_()
+
+        return eps.mul(std).add_(mu)
+
+        # std = torch.exp(0.5*logvar)
+        # eps = torch.randn_like(std)
+
+        # return mu + eps*std
+
+
+    def decoder(self, latent):
+        """
+        """
+
+        output = self._dec_fc_hidden_1(latent) # (16, ) -> (512, ). 
+        output = output.view(output.size(0), 512, 1, 1) # Flatten. (512, ) -> (1, 1, 512). 
+
+        output = self._decoder(output)
+
+        return output # The generated batch of image. 
+
+
+    def forward(self, x):
+        """
+        """
+
+        mu, logvar = self.encoder(x)
+        latent = self.reparameterize(mu, logvar)
+        output = self.decoder(latent)
+
+        return output, mu, logvar, latent
+
+
+    @property
+    def latent_dim(self):
+        """
+        """
+
+        return self._latent_dim
+
+
+# class VAE_Conv_test(nn.Module):
+#     """
+#     Only for validation. 
+#     """
+
+#     def __init__(self):
+#         """
+#         """
+
+#         super(VAE_Conv_test, self).__init__()
+        
+#         # Encoder. 
+#         self._enc_conv_hidden_1 = nn.Sequential(nn.Conv2d(1, 16, kernel_size=(3,3), stride=(1,1), padding=(1,1)), 
+#                                                 nn.MaxPool2d((2,2), 2), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 nn.BatchNorm2d(16), 
+#                                                 # nn.Dropout(0.5)
+#                                                 ) # (512, 512, 1) -> (256, 256, 16). 
+#         self._enc_conv_hidden_2 = nn.Sequential(nn.Conv2d(16, 32, kernel_size=(3,3), stride=(1,1), padding=(1,1)), 
+#                                                 nn.MaxPool2d((2,2), 2), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 nn.BatchNorm2d(32), 
+#                                                 # nn.Dropout(0.5)
+#                                                 ) # (256, 256, 16) -> (128, 128, 32). 
+#         self._enc_conv_hidden_3 = nn.Sequential(nn.Conv2d(32, 64, kernel_size=(3,3), stride=(1,1), padding=(1,1)), 
+#                                                 nn.MaxPool2d((2,2), 2), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 nn.BatchNorm2d(64), 
+#                                                 # nn.Dropout(0.5)
+#                                                 ) # (128, 128, 32) -> (64, 64, 64). 
+#         self._enc_conv_hidden_4 = nn.Sequential(nn.Conv2d(64, 128, kernel_size=(3,3), stride=(1,1), padding=(1,1)),
+#                                                 nn.MaxPool2d((2,2), 2),  
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 nn.BatchNorm2d(128), 
+#                                                 # nn.Dropout(0.5)
+#                                                 ) # (64, 64, 64) -> (32, 32, 128). 
+#         self._enc_conv_hidden_5 = nn.Sequential(nn.Conv2d(128, 256, kernel_size=(3,3), stride=(1,1), padding=(1,1)), 
+#                                                 nn.MaxPool2d((2,2), 2), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 nn.BatchNorm2d(256), 
+#                                                 # nn.Dropout(0.5)
+#                                                 ) # (32, 32, 128) -> (16, 16, 256). 
+#         self._enc_conv_hidden_6 = nn.Sequential(nn.Conv2d(256, 512, kernel_size=(3,3), stride=(1,1), padding=(1,1)), 
+#                                                 nn.MaxPool2d((2,2), 2), 
+#                                                 ML_VAE.ACTIVATION_LAYER,
+#                                                 nn.BatchNorm2d(512), 
+#                                                 # nn.Dropout(0.5)
+#                                                 ) # (16, 16, 256) -> (8, 8, 512). 
+#         self._enc_GAP = nn.AvgPool2d((8,8), 1) # GAP, (8, 8, 512) -> (1, 1, 512).
+
+#         self._encoder = nn.Sequential(self._enc_conv_hidden_1, 
+#                                       self._enc_conv_hidden_2, 
+#                                       self._enc_conv_hidden_3, 
+#                                       self._enc_conv_hidden_4, 
+#                                       self._enc_conv_hidden_5, 
+#                                       self._enc_conv_hidden_6, 
+#                                       self._enc_GAP)
+
+#         # Flatten(). 
+
+#         # Bottleneck
+#         self._enc_output_mu = nn.Linear(512, 16)
+#         self._enc_output_logvar = nn.Linear(512, 16)
+#         self._dec_fc_hidden_1 = nn.Sequential(nn.Linear(16, 512),
+#                                               # nn.Dropout(0.5)
+#                                               ) # (16, ) -> (512, ). 
+
+#         # Unflatten(). 
+
+#         # Decoder. 
+#         self._dec_deconv_hidden_1 = nn.Sequential(nn.Upsample(scale_factor=8, mode='nearest'), 
+#                                                   nn.ConvTranspose2d(512, 512, kernel_size=(3,3), stride=(1,1), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   nn.BatchNorm2d(512),
+#                                                   # nn.Dropout(0.5)
+#                                                   ) # (1, 1, 512) -> (8, 8, 512). 
+#         self._dec_deconv_hidden_2 = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), 
+#                                                   nn.ConvTranspose2d(512, 256, kernel_size=(3,3), stride=(1,1), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   nn.BatchNorm2d(256),
+#                                                   # nn.Dropout(0.5)
+#                                                   ) # (8, 8, 512) -> (16, 16, 256). 
+#         self._dec_deconv_hidden_3 = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), 
+#                                                   nn.ConvTranspose2d(256, 128, kernel_size=(3,3), stride=(1,1), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   nn.BatchNorm2d(128),
+#                                                   # nn.Dropout(0.5)
+#                                                   ) # (16, 16, 256) -> (32, 32, 128). 
+#         self._dec_deconv_hidden_4 = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), 
+#                                                   nn.ConvTranspose2d(128, 64, kernel_size=(3,3), stride=(1,1), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   nn.BatchNorm2d(64),
+#                                                   # nn.Dropout(0.5)
+#                                                   ) # (32, 32, 128) -> (64, 64, 64). 
+#         self._dec_deconv_hidden_5 = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), 
+#                                                   nn.ConvTranspose2d(64, 32, kernel_size=(3,3), stride=(1,1), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   nn.BatchNorm2d(32),
+#                                                   # nn.Dropout(0.5)
+#                                                   ) # (64, 64, 64) -> (128, 128, 32). 
+#         self._dec_deconv_hidden_6 = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), 
+#                                                   nn.ConvTranspose2d(32, 16, kernel_size=(3,3), stride=(1,1), padding=(1,1)),
+#                                                   ML_VAE.ACTIVATION_LAYER,
+#                                                   nn.BatchNorm2d(16),
+#                                                   # nn.Dropout(0.5)
+#                                                   ) # (128, 128, 32) -> (256, 256, 16). 
+#         self._dec_deconv_hidden_7 = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), 
+#                                                   nn.ConvTranspose2d(16, 1, kernel_size=(3,3), stride=(1,1), padding=(1,1)),
+#                                                   nn.Sigmoid()) # (256, 256, 16) -> (512, 512, 1). 
+#         self._decoder = nn.Sequential(self._dec_deconv_hidden_1,
+#                                       self._dec_deconv_hidden_2,
+#                                       self._dec_deconv_hidden_3,
+#                                       self._dec_deconv_hidden_4,
+#                                       self._dec_deconv_hidden_5,
+#                                       self._dec_deconv_hidden_6,
+#                                       self._dec_deconv_hidden_7)
+    
+    
+#     def encoder(self, x):
+#         """
+#         """
+
+#         output = self._encoder(x)
+#         output = output.view(output.size(0), -1) # Flatten. 
+
+#         mu = self._enc_output_mu(output)
+#         logvar = self._enc_output_logvar(output)
+
+#         return mu, logvar
+    
+
+#     def reparameterize(self, mu, logvar):
+#         """
+#         """
+
+#         std = torch.exp(0.5*logvar)
+#         eps = torch.randn_like(std)
+
+#         return mu + eps*std
+
+
+#     def decoder(self, latent):
+#         """
+#         """
+
+#         output = self._dec_fc_hidden_1(latent) # (16, ) -> (512, ). 
+#         output = output.view(output.size(0), 512, 1, 1) # Flatten. (512, ) -> (1, 1, 512). 
+
+#         output = self._decoder(output)
+
+#         return output # The generated batch of image. 
+
+
+#     def forward(self, x):
+#         """
+#         """
+
+#         mu, logvar = self.encoder(x)
+#         latent = self.reparameterize(mu, logvar)
+#         output = self.decoder(latent)
+
+#         return output, mu, logvar, latent
+
+
+class Loss_VAE(nn.Module):
+    """
+    """
+
+    def __init__(self, loss_beta=1., reconstruct_mode=ML_VAE.LOSS_RECONSTRUCT_MODE):
+        """
+        """
+
+        super(Loss_VAE, self).__init__()
+        self.loss_beta = loss_beta # Hyperparameter for controlling weights of the KL-divergence loss function term. 
+        self.reconstruct_mode = reconstruct_mode
+
+
+    def forward(self, y, x, mu, logvar):
+        """
+        Might change due to different types of sampled distribution. 
+
+        y: generated image. 
+        x: input/groundtruth image. 
+        mu: mean vect of sampled distribution. 
+        logvar: std of sampled distribution.
+        """
+
+        if self.reconstruct_mode == 'MSE': # For grayscale or binarized image. 
+            reconstruct_loss = F.mse_loss(y.view(y.size(0),-1), x.view(x.size(0),-1), reduction='sum')
+        elif self.reconstruct_mode == 'BCE': # For binarized image. 
+            reconstruct_loss = F.binary_cross_entropy(y.view(y.size(0),-1), x.view(x.size(0),-1), reduction='sum')
+        else: reconstruct_loss = 0
+
+        # MSE_loss = nn.MSELoss(y, x) # For grayscale or binarized image. 
+        # BCE_loss = F.binary_cross_entropy(y.view(y.size(0),-1), x.view(x.size(0),-1), reduction='sum') # For binarized image. 
+
+        # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2) # Mimic the unit normal distribution. 
+        KLD_loss = -0.5 * self.loss_beta * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        # KLD_loss = torch.sum(logvar.add_(1).add_(-mu.pow(2)).add_(-logvar.exp())).mul_(-0.5).mul_(self.loss_beta)
+
+        return reconstruct_loss + KLD_loss

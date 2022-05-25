@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 from torch.utils.data import Dataset, DataLoader
 
-from PARAM.ML import *
+from PARAM.ML_1DCONV import *
 
 
 class Conv_1d_neural_net(nn.Module):
@@ -33,6 +33,8 @@ class Conv_1d_neural_net(nn.Module):
         """
         Always conv first, then MLP. Must contain MLP. 
         """
+
+        super(Conv_1d_neural_net, self).__init__()
         
         self._isConv = isConv
         self.input_dim = in_dim

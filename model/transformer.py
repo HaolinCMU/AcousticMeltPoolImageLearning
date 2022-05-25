@@ -8,7 +8,8 @@ Created on Thu Apr  7 17:14:13 2022
 
 import os
 import sys
-sys.path.append("..")
+DIR_ABS = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(DIR_ABS))
 
 import numpy as np
 import torch
@@ -19,7 +20,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from torch.utils.data import Dataset, DataLoader
-from PARAM.ML import *
+from PARAM import *
 
 
 class Transformer():

@@ -8,18 +8,21 @@ Created on Wed Apr  6 17:45:17 2022
 
 import os
 import copy
+import sys
+DIR_ABS = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(DIR_ABS))
+
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-# from .imgBasics import *
-# from .utility import *
+from .imgBasics import *
+from .utility import *
 
-from imgBasics import *
-from utility import *
+from PARAM import *
 
 
-DEBUG = True # Default: False
+DEBUG = False # Default: False. 
 
 
 class HuMoments(Image):
@@ -272,23 +275,25 @@ class ZernikeMoments(Image):
 
 if __name__ == "__main__":
     # file_path = 'C:/Users/hlinl/OneDrive/Desktop/New folder/Data/raw_image_data/Layer042_Section_08_S0001/Layer042_Section_08_S0001000926.png'
-    file_path = 'C:/Users/hlinl/OneDrive/Desktop/zernike/F/gl5un.png'
-    m_max_list = [15]
+    # file_path = 'C:/Users/hlinl/OneDrive/Desktop/zernike/F/gl5un.png'
+    # m_max_list = [15]
     
-    for ind, m_max in enumerate(m_max_list):
-        zernike = ZernikeMoments(file_path=file_path, m_max=m_max)
-        zernike_moments = zernike.Zernike_moments()
-        img_reconstruct = zernike.reconstruct(zernike.Zernike_moments_dict).reshape(zernike.image_matrix.shape)
+    # for ind, m_max in enumerate(m_max_list):
+    #     zernike = ZernikeMoments(file_path=file_path, m_max=m_max)
+    #     zernike_moments = zernike.Zernike_moments()
+    #     img_reconstruct = zernike.reconstruct(zernike.Zernike_moments_dict).reshape(zernike.image_matrix.shape)
 
-        if ind == 0:
-            plt.figure(figsize=(20,20))
-            plt.rcParams.update({"font.size": 35})
-            plt.tick_params(labelsize=35)
-            plt.imshow(zernike.image_matrix, cmap='gray')
-            plt.savefig("ori.png")
+    #     if ind == 0:
+    #         plt.figure(figsize=(20,20))
+    #         plt.rcParams.update({"font.size": 35})
+    #         plt.tick_params(labelsize=35)
+    #         plt.imshow(zernike.image_matrix, cmap='gray')
+    #         plt.savefig("ori.png")
             
-        plt.figure(figsize=(20,20))
-        plt.rcParams.update({"font.size": 35})
-        plt.tick_params(labelsize=35)
-        plt.imshow(copy.deepcopy(img_reconstruct), cmap='gray')
-        plt.savefig("m_{}.png".format(m_max))
+    #     plt.figure(figsize=(20,20))
+    #     plt.rcParams.update({"font.size": 35})
+    #     plt.tick_params(labelsize=35)
+    #     plt.imshow(copy.deepcopy(img_reconstruct), cmap='gray')
+    #     plt.savefig("m_{}.png".format(m_max))
+
+    pass

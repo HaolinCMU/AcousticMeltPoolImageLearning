@@ -16,7 +16,8 @@ import sklearn.cluster as skc
 
 from .imgBasics import *
 from .utility import *
-from PARAM.IMG import *
+
+from PARAM import *
 
 
 class dbscan(object):

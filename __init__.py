@@ -6,40 +6,156 @@ Created on Mon Apr 25 19:52:31 2022
 """
 
 
+import argparse
 import os
 import glob
 import copy
+import imageio
 
 import numpy as np
+import scipy
+import scipy.io
 import torch
 import torch.nn as nn
 import torch.utils
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import PIL
+
+from torchvision import transforms
 
 from PARAM import *
 from dataprocessing import *
+from model import *
+
+from files import *
+from image_processing import *
+from training import *
+from dataset import *
+
+
+# DEBUG apram. 
+DEBUG = False
 
 
 # JOB PARAMS. 
-DATA_GENERATION_TOKEN = True
+FRAME_PROCESS_DATA_GENERATION_TOKEN = False
 ACOUSTIC_SPECTROGRAM_TYPE = 'wavelet'
 IMAGE_FEATURE_TYPE = 'Hu'
 ML_MODEL_TYPE = 'VAE'
 
 
 if __name__ == "__main__":
+    # Set parser.
+    parser = argparse.ArgumentParser(description="__init__")
+
+    # Dataset & Data generation. 
+    parser.add_argument("--data_dir_path", default=BASIC.DATA_DIRECTORY, type=str, 
+                        help="The directory of all raw data, including audio and image. ")
+    parser.add_argument("--img_data_subdir", default=BASIC.IMAGE_DATA_SUBDIR, type=str, 
+                        help="The folder name of raw image data, including subfolders of different layers. ")
+    parser.add_argument("--img_processed_data_subdir", default=BASIC.IMAGE_PROCESSED_DATA_SUBDIR, type=str, 
+                        help="The folder name of processed image data, including subfolders of different layers. ")
+    parser.add_argument("--img_extension", default=IMG.IMAGE_EXTENSION, type=str, 
+                        help="The extension (file format) of raw image files. ")
+    parser.add_argument("--image_size", default=IMG.IMAGE_SIZE, type=list, 
+                        help="The intended size ([h, w]) of the processed image. ")
+    parser.add_argument("--img_straighten_keyword", default=IMG.IMG_STRAIGHTEN_KEYWORD, type=str, 
+                        help="The keyword of image straighten mode for the class `Frame`. ")
+    parser.add_argument("--frame_align_mode", default=IMG.FRAME_ALIGN_MODE, type=str, 
+                        help="The keyword indicating the moving axis of the melt pool image frame. ")
+    parser.add_argument("--frame_realign_axis_vect", default=IMG.FRAME_REALIGN_AXIS_VECT, type=str, 
+                        help="The keyword indicating the targeted axis of the melt pool image frame. ")
+    parser.add_argument("--is_binary", default=True, type=bool, 
+                        help="Indicate whether the processed images require binarization. ")
+    
+    # Machine learning - VAE. 
+    parser.add_argument("--vae_input_img_dir", default=ML_VAE.INPUT_IMAGE_DATA_DIR, type=str, 
+                        help="The directory of all input images for VAE. ")
+    parser.add_argument("--vae_output_img_dir", default=ML_VAE.OUTPUT_IMAGE_DATA_DIR, type=str, 
+                        help="The directory of all output images for VAE. ")
+    parser.add_argument("--vae_batch_size", default=ML_VAE.BATCH_SIZE, type=int, 
+                        help="The batch size of dataset for VAE. ")
+    parser.add_argument("--vae_lr", default=ML_VAE.LEARNING_RATE, type=float, 
+                        help="The (initial) learning rate of training for VAE. ")
+    parser.add_argument("--vae_num_epochs", default=ML_VAE.NUM_EPOCHS, type=int, 
+                        help="The epoch numbers of training for VAE. ")
+    parser.add_argument("--vae_loss_beta", default=ML_VAE.LOSS_BETA, type=float, 
+                        help="Hyperparameter for controlling weights of the KL-divergence loss function term. ")
+
+    args = parser.parse_args()
 
     # Data processing
+    if FRAME_PROCESS_DATA_GENERATION_TOKEN:
+        # Image data processing. 
+        img_data_subdir_path = os.path.join(args.data_dir_path, args.img_data_subdir) # Directory of raw melt pool images. 
+        img_processed_data_subdir_path = os.path.join(args.data_dir_path, args.img_processed_data_subdir) # Directory of processed melt pool images. 
+        clr_dir(img_processed_data_subdir_path)
 
-    # Dataset generation
+        img_subfolder_list = os.listdir(img_data_subdir_path) # List of subfolders of different layers.
 
-    # Machine learning model training
+        for img_subfolder in img_subfolder_list:
+            img_processed_subfolder_path = os.path.join(img_processed_data_subdir_path, img_subfolder)
+            if not os.path.isdir(img_processed_subfolder_path): os.mkdir(img_processed_subfolder_path) # Create folder for processed images. 
+
+            img_subfolder_path = os.path.join(img_data_subdir_path, img_subfolder)
+            img_filepath_perSubFolder_list = glob.glob(os.path.join(img_subfolder_path, 
+                                                                    "*.{}".format(args.img_extension))) # List of image file paths of each layer's subfolder. 
+
+            for img_ind, img_filepath in enumerate(img_filepath_perSubFolder_list): # Image data processing part can be separated from the main workflow. 
+                frame_temp = Frame(img_filepath)
+                meltpool_straightened_image_temp = frame_temp.straighten(args.img_straighten_keyword, 
+                                                                         args.frame_align_mode,
+                                                                         args.frame_realign_axis_vect) # Get straightened meltpool image.
+
+                img_processed_temp = copy.deepcopy(meltpool_straightened_image_temp)
+                if not args.is_binary: img_processed_temp = PIL.Image.fromarray(np.uint8(img_processed_temp*255)) # Not binarizing the image, keeping the original intensity values. 
+                else: img_processed_temp = PIL.Image.fromarray(np.uint8(frame_temp.binarize(img_processed_temp)*255)) # Binarize image and convert it to `uint8` data type. 
+                img_processed_temp = transforms.Resize(args.image_size)(img_processed_temp)
+
+                img_processed_file_path_temp = os.path.join(img_processed_subfolder_path, 
+                                                            "{}_{}.{}".format(img_subfolder, img_ind, args.img_extension))
+                img_processed_temp.save(img_processed_file_path_temp)
     
-    # Model validation
+    # Training - VAE. 
+    vae_model = Model_VAE(input_data_dir=args.vae_input_img_dir, output_data_dir=args.vae_output_img_dir, 
+                          batch_size=args.vae_batch_size, learning_rate=args.vae_lr, 
+                          num_epochs=args.vae_num_epochs, loss_beta=args.vae_loss_beta)
+    
+    # Save dataset repo dicts. 
+    np.save("train_set_ind_array.npy", vae_model.train_set_ind_array)
+    np.save("valid_set_ind_array.npy", vae_model.valid_set_ind_array)
+    np.save("test_set_ind_array.npy", vae_model.test_set_ind_array)
+
+    scipy.io.savemat("input_data_repo_dict.mat", vae_model.dataset.input_data_repo_dict)
+    scipy.io.savemat("output_data_repo_dict.mat", vae_model.dataset.output_data_repo_dict)
+
+    vae_model.train() # Train the model. 
+    vae_model.loss_plot() # Plot Train & Valid Loss. 
+
+    # In-situ evaluation. Test on outside dataset should be implemented separately. 
+    (loss_list_test, groundtruths_list_test, generations_list_test,
+     mu_list_test, logvar_list_test, latent_list_test) = vae_model.evaluate(vae_model.vae_net, vae_model.test_loader)
+    (loss_list_train, groundtruths_list_train, generations_list_train,
+     mu_list_train, logvar_list_train, latent_list_train) = vae_model.evaluate(vae_model.vae_net, vae_model.train_loader) 
+
+    np.save("loss_list_test.npy", loss_list_test)
+    np.save("groundtruths_list_test.npy", groundtruths_list_test)
+    np.save("generations_list_test.npy", generations_list_test)
+    np.save("mu_list_test.npy", mu_list_test)
+    np.save("logvar_list_test.npy", logvar_list_test)
+    np.save("latent_list_test.npy", latent_list_test)
+
+    np.save("loss_list_train.npy", loss_list_train)
+    np.save("groundtruths_list_train.npy", groundtruths_list_train)
+    np.save("generations_list_train.npy", generations_list_train)
+    np.save("mu_list_train.npy", mu_list_train)
+    np.save("logvar_list_train.npy", logvar_list_train)
+    np.save("latent_list_train.npy", latent_list_train)
+
 
     # Result plot & analysis & parametric study
 
-    pass
+    
 
