@@ -268,8 +268,6 @@ class ZernikeMoments(Image):
         """
         """
 
-        
-
         pass
 
 

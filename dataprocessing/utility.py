@@ -95,3 +95,34 @@ def angle_2vect(vect_1, vect_2):
 
     return theta_rad * 180. / np.pi # [0., 180.]
 
+
+def A_diff_B_array(A, B):
+    """
+    A, B must be axis-0-dominant matrices. 
+    """
+
+    return np.array([data for data in set(tuple(pt_A) for pt_A in A) - set(tuple(pt_B) for pt_B in B)])
+
+
+def A_intersect_B_array(A, B):
+    """
+    A, B must be axis-0-dominant matrices. 
+    """
+
+    return np.array([data for data in set(tuple(pt_A) for pt_A in A) & set(tuple(pt_B) for pt_B in B)])
+
+
+def A_and_B_array(A, B):
+    """
+    A, B must be axis-0-dominant matrices. 
+    """
+
+    return np.array([data for data in set(tuple(pt_A) for pt_A in A) | set(tuple(pt_B) for pt_B in B)])
+
+
+def A_symm_diff_B_array(A, B):
+    """
+    A, B must be axis-0-dominant matrices. 
+    """
+
+    return np.array([data for data in set(tuple(pt_A) for pt_A in A) ^ set(tuple(pt_B) for pt_B in B)])

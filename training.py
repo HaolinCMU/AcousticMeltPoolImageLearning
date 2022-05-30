@@ -295,7 +295,7 @@ class Model_VAE(object):
             print("--------------------")
 
             # Save trained intermediate models every certain epochs. 
-            if (epoch+1) % 5 == 0:
+            if (epoch+1) % ML_VAE.MODEL_CHECKPOINT_EPOCH_NUM == 0:
                 model_savePath_temp = os.path.join(self.model_arxiv_dir, "model_epoch_{}.pkl".format(epoch+1))
                 torch.save(self.vae_net.state_dict(), model_savePath_temp)
             
@@ -334,12 +334,12 @@ class Model_VAE(object):
                     groundtruths_list += [groundtruths_test.cpu().numpy()[i,:].reshape(c, h, w) for i in range(batch_size_temp)]
                 if len(generations_list) <= 50: # Prescribe size limit to save space. 
                     generations_list += [y.cpu().numpy()[i,:].reshape(c, h, w) for i in range(batch_size_temp)]
-                mu_list.append(mu.cpu().numpy())
-                logvar_list.append(logvar.cpu().numpy())
-                latent_list.append(latent.cpu().numpy())
-                # mu_list += [mu.cpu().numpy()[i,:] for i in range(batch_size_temp)]
-                # logvar_list += [logvar.cpu().numpy()[i,:] for i in range(batch_size_temp)]
-                # latent_list += [latent.cpu().numpy()[i,:] for i in range(batch_size_temp)]
+                # mu_list.append(mu.cpu().numpy())
+                # logvar_list.append(logvar.cpu().numpy())
+                # latent_list.append(latent.cpu().numpy())
+                mu_list += [mu.cpu().numpy()[i,:] for i in range(batch_size_temp)]
+                logvar_list += [logvar.cpu().numpy()[i,:] for i in range(batch_size_temp)]
+                latent_list += [latent.cpu().numpy()[i,:] for i in range(batch_size_temp)]
         
         return loss_list, groundtruths_list, generations_list, mu_list, logvar_list, latent_list
 

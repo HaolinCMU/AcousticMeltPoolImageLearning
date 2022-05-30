@@ -41,6 +41,7 @@ DEBUG = False
 
 # JOB PARAMS. 
 FRAME_PROCESS_DATA_GENERATION_TOKEN = False
+VAE_TRAINING_TOKEN = True
 ACOUSTIC_SPECTROGRAM_TYPE = 'wavelet'
 IMAGE_FEATURE_TYPE = 'Hu'
 ML_MODEL_TYPE = 'VAE'
@@ -67,7 +68,7 @@ if __name__ == "__main__":
                         help="The keyword indicating the moving axis of the melt pool image frame. ")
     parser.add_argument("--frame_realign_axis_vect", default=IMG.FRAME_REALIGN_AXIS_VECT, type=str, 
                         help="The keyword indicating the targeted axis of the melt pool image frame. ")
-    parser.add_argument("--is_binary", default=True, type=bool, 
+    parser.add_argument("--is_binary", default=IMG.IS_BINARY, type=bool, 
                         help="Indicate whether the processed images require binarization. ")
     
     # Machine learning - VAE. 
@@ -85,6 +86,8 @@ if __name__ == "__main__":
                         help="Hyperparameter for controlling weights of the KL-divergence loss function term. ")
 
     args = parser.parse_args()
+
+    ####################################################################################################################
 
     # Data processing
     if FRAME_PROCESS_DATA_GENERATION_TOKEN:
@@ -118,42 +121,47 @@ if __name__ == "__main__":
                                                             "{}_{}.{}".format(img_subfolder, img_ind, args.img_extension))
                 img_processed_temp.save(img_processed_file_path_temp)
     
+    ####################################################################################################################
+
     # Training - VAE. 
-    vae_model = Model_VAE(input_data_dir=args.vae_input_img_dir, output_data_dir=args.vae_output_img_dir, 
-                          batch_size=args.vae_batch_size, learning_rate=args.vae_lr, 
-                          num_epochs=args.vae_num_epochs, loss_beta=args.vae_loss_beta)
-    
-    # Save dataset repo dicts. 
-    np.save("train_set_ind_array.npy", vae_model.train_set_ind_array)
-    np.save("valid_set_ind_array.npy", vae_model.valid_set_ind_array)
-    np.save("test_set_ind_array.npy", vae_model.test_set_ind_array)
+    if VAE_TRAINING_TOKEN:
+        vae_model = Model_VAE(input_data_dir=args.vae_input_img_dir, output_data_dir=args.vae_output_img_dir, 
+                            batch_size=args.vae_batch_size, learning_rate=args.vae_lr, 
+                            num_epochs=args.vae_num_epochs, loss_beta=args.vae_loss_beta)
+        
+        # Save dataset repo dicts. 
+        np.save("train_set_ind_array.npy", vae_model.train_set_ind_array)
+        np.save("valid_set_ind_array.npy", vae_model.valid_set_ind_array)
+        np.save("test_set_ind_array.npy", vae_model.test_set_ind_array)
 
-    scipy.io.savemat("input_data_repo_dict.mat", vae_model.dataset.input_data_repo_dict)
-    scipy.io.savemat("output_data_repo_dict.mat", vae_model.dataset.output_data_repo_dict)
+        scipy.io.savemat("input_data_repo_dict.mat", vae_model.dataset.input_data_repo_dict)
+        scipy.io.savemat("output_data_repo_dict.mat", vae_model.dataset.output_data_repo_dict)
 
-    vae_model.train() # Train the model. 
-    vae_model.loss_plot() # Plot Train & Valid Loss. 
+        vae_model.train() # Train the model. 
+        vae_model.loss_plot() # Plot Train & Valid Loss. 
 
-    # In-situ evaluation. Test on outside dataset should be implemented separately. 
-    (loss_list_test, groundtruths_list_test, generations_list_test,
-     mu_list_test, logvar_list_test, latent_list_test) = vae_model.evaluate(vae_model.vae_net, vae_model.test_loader)
-    (loss_list_train, groundtruths_list_train, generations_list_train,
-     mu_list_train, logvar_list_train, latent_list_train) = vae_model.evaluate(vae_model.vae_net, vae_model.train_loader) 
+        # In-situ evaluation. Test on outside dataset should be implemented separately. 
+        # Validation & data saving process takes roughly 10 mins. 
+        (loss_list_test, groundtruths_list_test, generations_list_test,
+        mu_list_test, logvar_list_test, latent_list_test) = vae_model.evaluate(vae_model.vae_net, vae_model.test_loader)
+        (loss_list_train, groundtruths_list_train, generations_list_train,
+        mu_list_train, logvar_list_train, latent_list_train) = vae_model.evaluate(vae_model.vae_net, vae_model.train_loader) 
 
-    np.save("loss_list_test.npy", loss_list_test)
-    np.save("groundtruths_list_test.npy", groundtruths_list_test)
-    np.save("generations_list_test.npy", generations_list_test)
-    np.save("mu_list_test.npy", mu_list_test)
-    np.save("logvar_list_test.npy", logvar_list_test)
-    np.save("latent_list_test.npy", latent_list_test)
+        np.save("loss_list_test.npy", loss_list_test)
+        np.save("groundtruths_list_test.npy", groundtruths_list_test)
+        np.save("generations_list_test.npy", generations_list_test)
+        np.save("mu_list_test.npy", mu_list_test)
+        np.save("logvar_list_test.npy", logvar_list_test)
+        np.save("latent_list_test.npy", latent_list_test)
 
-    np.save("loss_list_train.npy", loss_list_train)
-    np.save("groundtruths_list_train.npy", groundtruths_list_train)
-    np.save("generations_list_train.npy", generations_list_train)
-    np.save("mu_list_train.npy", mu_list_train)
-    np.save("logvar_list_train.npy", logvar_list_train)
-    np.save("latent_list_train.npy", latent_list_train)
+        np.save("loss_list_train.npy", loss_list_train)
+        np.save("groundtruths_list_train.npy", groundtruths_list_train)
+        np.save("generations_list_train.npy", generations_list_train)
+        np.save("mu_list_train.npy", mu_list_train)
+        np.save("logvar_list_train.npy", logvar_list_train)
+        np.save("latent_list_train.npy", latent_list_train)
 
+    ####################################################################################################################
 
     # Result plot & analysis & parametric study
 

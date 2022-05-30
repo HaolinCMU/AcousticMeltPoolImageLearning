@@ -11,7 +11,6 @@ import glob
 import copy
 
 import argparse
-import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mig
@@ -41,12 +40,17 @@ class Frame(imgBasics.Image):
         self.intensity_threshold = intensity_threshold
         self._isEmpty = False # Boolean. True if no pixels satisfy the intensity threshold. 
 
+        # Total. 
         self._bright_pixel_index_array = np.array([[None, None]])
         self._bright_pixel_intensity_array = np.array([None]) # Same order as `self._bright_pixel_index_array`. 
         self.visible_image = np.array([None])
         self.mass_center_pt = np.array([None]) # 1D Int array. A pixel. 
         self._total_area = None
 
+        self._pixel_clusters = None
+
+        # Melt pool. 
+        self._isMeltpool = False
         self.meltpool_pixel_index_array = np.array([[None, None]])
         self.meltpool_pixel_intensity_array = np.array([None]) # Same order as `self.meltpool_pixel_intensity_array`.
         self._meltpool_image = np.array([None])
@@ -54,19 +58,34 @@ class Frame(imgBasics.Image):
         self._meltpool_area = None # Int. Number of melt pool pixels. 
         self._meltpool_length = None # Float. 
         self._meltpool_width = None # Float. 
-        self._meltpool_principal_axes = np.array([None]) # Float. 
+        self._meltpool_principal_axes = None # Float. 
 
         self._meltpool_spatial_skewness = None # Float. 
+        self._spatters_intensity_kurtosis = None # Float. 
         self._meltpool_intensity_kurtosis = None # Float.
-        self._total_intensity_kurtosis = None # Float 
+        self._total_intensity_kurtosis = None # Float. 
 
-        self.visible_image_straightened = np.array([None])
-        self._visible_pixel_index_straightened = np.array([[None, None]])
-        self.meltpool_image_straightened = np.array([None])
-        self._meltpool_pixel_index_straightened = np.array([[None, None]])
+        # Spatters. 
+        self._isSpatter = False
+        self.spatters_list = None
+        self.spatters_pixel_index_array = None
+        self.spatters_pixel_intensity_array = None
+        self._spatters_image = None
+        self.spatters_center_pts = None # List of center points. 
+        self._spatters_num = 0
+        self._spatters_sizes = None
+        self._spatters_distances = None
+
+        self.visible_image_straightened = None
+        self._visible_pixel_index_straightened = np.array([[None, None]]) # Not employed. 
+        self.meltpool_image_straightened = None
+        self._meltpool_pixel_index_straightened = np.array([[None, None]]) # Not employed. 
+        self.spatters_image_straightened = None
+        self._spatters_pixel_index_straightened = np.array([[None, None]]) # Not employed. 
 
         self._thresholding()
         self._set_meltpool()
+        self._set_spatters()
     
 
     @property
@@ -86,6 +105,22 @@ class Frame(imgBasics.Image):
 
 
     @property
+    def spatters_sizes(self):
+        """
+        """
+
+        return self._spatters_sizes
+    
+
+    @property
+    def spatters_num(self):
+        """
+        """
+
+        return self._spatters_num
+
+
+    @property
     def visible_pixel_indices(self):
         """
         Get the indices of pixels with intensity values fallen in between the range defined by `self.intensity_threshold`. 
@@ -102,7 +137,15 @@ class Frame(imgBasics.Image):
 
         return self.meltpool_pixel_index_array
     
+
+    @property
+    def spatters_pixel_indices(self):
+        """
+        """
+
+        return self.spatters_pixel_index_array
     
+
     @property
     def thresheld_image(self):
         """
@@ -118,6 +161,14 @@ class Frame(imgBasics.Image):
         
         return self._meltpool_image
     
+
+    @property
+    def spatters_image(self):
+        """
+        """
+
+        return self._spatters_image
+
     
     @property
     def meltpool_length(self):
@@ -133,6 +184,14 @@ class Frame(imgBasics.Image):
         """
         
         return self._meltpool_width
+
+    
+    @property
+    def spatters_distances(self):
+        """
+        """
+
+        return self._spatters_distances
     
 
     @staticmethod
@@ -152,7 +211,7 @@ class Frame(imgBasics.Image):
         """
         """
         
-        if not self._isEmpty:
+        if not self._isEmpty and self._isMeltpool:
             self._meltpool_length = self._dimension_along_axis(self.meltpool_pixel_index_array, self.meltpool_center_pt, 
                                                                copy.deepcopy(self._meltpool_principal_axes[:,0]))
             self._meltpool_width = self._dimension_along_axis(self.meltpool_pixel_index_array, self.meltpool_center_pt, 
@@ -257,8 +316,9 @@ class Frame(imgBasics.Image):
                                                         self.image_matrix <= self.intensity_threshold[1]))
         self._bright_pixel_index_array = np.vstack((indices_array_row_col[0], 
                                                     indices_array_row_col[1])).astype(int).T # [row | col]; [Axis-0 | Axis-1].
+        self._total_area = self._bright_pixel_index_array.shape[0]
 
-        if self._bright_pixel_index_array.shape[0] != 0:
+        if self._total_area != 0:
             self._isEmpty = False
             self._bright_pixel_intensity_array = copy.deepcopy(np.array([self.image_matrix[i,j] 
                                                                          for i,j in self._bright_pixel_index_array]).reshape(-1))
@@ -278,22 +338,28 @@ class Frame(imgBasics.Image):
         Extract the pixel indices of melt pool, which is the largest pixel cluster in the filtered image. 
         """
 
-        if not self._isEmpty:
-            pixel_clusters = clustering.dbscan(self._bright_pixel_index_array, DBSCAN_EPSILON, DBSCAN_MIN_PTS)
-            self.meltpool_pixel_index_array = pixel_clusters.largest_cluster().astype(int)
-            self.meltpool_pixel_intensity_array = copy.deepcopy(np.array([self.image_matrix[i,j] 
-                                                                          for i,j in self.meltpool_pixel_index_array]).reshape(-1))
-            self._meltpool_image = self._filter_image(self.meltpool_pixel_index_array)
-            self.meltpool_center_pt = pixel_clusters.center_pt(self.meltpool_pixel_index_array).astype(int)
+        self.meltpool_pixel_index_array = np.array([[None, None]])
+        self.meltpool_pixel_intensity_array = np.array([None])
+        self._meltpool_image = self.blank_version()
+        self.meltpool_center_pt = copy.deepcopy(self.mass_center_pt)
+        self._meltpool_area = 0
 
-        else:
-            self.meltpool_pixel_index_array = np.array([[None, None]])
-            self.meltpool_pixel_intensity_array = np.array([None])
-            self._meltpool_image = self.blank_version()
-            self.meltpool_center_pt = copy.deepcopy(self.mass_center_pt)
-        
-        self._total_area = self._bright_pixel_index_array.shape[0]
-        self._meltpool_area = self.meltpool_pixel_index_array.shape[0]
+        if not self._isEmpty:
+            self._pixel_clusters = clustering.dbscan(self._bright_pixel_index_array, DBSCAN_EPSILON, DBSCAN_MIN_PTS)
+            meltpool_cluster_label, meltpool_cluster = self._pixel_clusters.largest_cluster()
+
+            if meltpool_cluster_label != -1: 
+                self._isMeltpool = True
+                self.meltpool_pixel_index_array = meltpool_cluster.astype(int) # Discard the label of the largest cluster. 
+                self.meltpool_pixel_intensity_array = copy.deepcopy(np.array([self.image_matrix[i,j] for i,j in \
+                                                                              self.meltpool_pixel_index_array]).reshape(-1))
+                self._meltpool_image = self._filter_image(self.meltpool_pixel_index_array)
+                self.meltpool_center_pt = self._pixel_clusters.center_pt(self.meltpool_pixel_index_array).astype(int)
+                self._meltpool_area = self._pixel_clusters.size_of(self.meltpool_pixel_index_array)
+            
+            else: self._isMeltpool = False
+
+        else: pass
         
         self._set_meltpool_principal_axes()
         self._set_meltpool_dimensions()
@@ -303,21 +369,21 @@ class Frame(imgBasics.Image):
         """
         """
 
-        if not self._isEmpty: 
+        if not self._isEmpty and self._isMeltpool: 
             pca_coder = pca.PCA(self.meltpool_pixel_index_array.astype(float), 
                                 PC_num=PC_NUM_FRAME, mode=PCA_MODE_FRAME)
             self._meltpool_principal_axes = pca_coder.eigFaces()
         else:
-            self._meltpool_principal_axes = np.array([[None, None], [None, None]])
+            self._meltpool_principal_axes = np.array([[0., 1.], [1., 0.]])
 
         
     def _meltpool_axis_of(self, keyword='principal'):
         """
         """
         
-        meltpool_axis = np.array([None, None])
+        meltpool_axis = np.array([0., 1.])
         
-        if not self._isEmpty:
+        if not self._isEmpty and self._isMeltpool:
             if keyword == 'principal': 
                 meltpool_axis = copy.deepcopy(self._meltpool_principal_axes[:,0]).reshape(-1)
             elif keyword == 'secondary':
@@ -334,7 +400,8 @@ class Frame(imgBasics.Image):
         axis: shape=(-1,)
         """
 
-        if self._isEmpty: self._meltpool_spatial_skewness = None
+        if self._isEmpty and not self._isMeltpool: 
+            self._meltpool_spatial_skewness = None
 
         else:             
             inner_product_array = imgBasics.projection_along_axis(self.meltpool_pixel_index_array, 
@@ -344,6 +411,40 @@ class Frame(imgBasics.Image):
         return self._meltpool_spatial_skewness
     
 
+    def _set_spatters(self):
+        """
+        """
+        
+        self.spatters_pixel_index_array = np.array([[None, None]])
+        self.spatters_pixel_intensity_array = np.array([None])
+        self._spatters_image = self.blank_version()
+        self.spatters_center_pts = [copy.deepcopy(self.mass_center_pt)]
+
+        if not self._isEmpty and self._isMeltpool and self._pixel_clusters is not None:
+            _, cluster_list = self._pixel_clusters.labels_and_clusters(sort='size_descend')
+            self.spatters_list = copy.deepcopy(cluster_list[1:]) # Exclude the largest cluster (melt pool). 
+            self._spatters_num = len(self.spatters_list)
+
+            if self._spatters_num != 0: 
+                self._isSpatter = True
+                self.spatters_center_pts = [self._pixel_clusters.center_pt(spatter_cluster) \
+                                            for spatter_cluster in self.spatters_list]
+                self._spatters_sizes = [self._pixel_clusters.size_of(spatter_cluster) \
+                                        for spatter_cluster in self.spatters_list]
+                self._spatters_distances = [np.linalg.norm(spatter_center_pt-self.meltpool_center_pt) \
+                                            for spatter_center_pt in self.spatters_center_pts]
+            
+                self.spatters_pixel_index_array = utility.A_diff_B_array(A=self._bright_pixel_index_array, 
+                                                                         B=self.meltpool_pixel_index_array).astype(int)
+                self.spatters_pixel_intensity_array = copy.deepcopy(np.array([self.image_matrix[i,j] \
+                                                                    for i,j in self.spatters_pixel_index_array]).reshape(-1))
+                self._spatters_image = self._filter_image(self.spatters_pixel_index_array)
+            
+            else: self._isSpatter = False
+            
+        else: pass
+    
+
     def _compute_intensity_kurtosis(self, keyword='meltpool'): 
         """
         """
@@ -351,7 +452,7 @@ class Frame(imgBasics.Image):
         kurtosis_val = None
 
         if keyword == 'meltpool':
-            if not self._isEmpty: 
+            if not self._isEmpty and self._isMeltpool: 
                 kurtosis_val = kurtosis(self.meltpool_pixel_intensity_array)
             else: pass
 
@@ -364,6 +465,13 @@ class Frame(imgBasics.Image):
 
             self._total_intensity_kurtosis = kurtosis_val
 
+        elif keyword == 'spatters':
+            if not self._isEmpty and self._isSpatter: 
+                kurtosis_val = kurtosis(self.spatters_pixel_intensity_array)
+            else: pass
+
+            self._spatters_intensity_kurtosis = kurtosis_val
+
         else: pass
     
         return kurtosis_val
@@ -375,7 +483,7 @@ class Frame(imgBasics.Image):
         
         rotation_angle = 0.
         
-        if not self._isEmpty:
+        if not self._isEmpty and self._isMeltpool:
             skewness = self._compute_meltpool_spatial_skewness(meltpool_axis)
             
             if skewness <= 0.: axis_vect = copy.deepcopy(meltpool_axis)
@@ -420,10 +528,10 @@ class Frame(imgBasics.Image):
             if self_axis_keyword == 'principal' or self_axis_keyword == 'secondary': 
                 self_axis = self._meltpool_axis_of(self_axis_keyword)
             elif self_axis_keyword == 'other':
-                self_axis = copy.deepcopy(self_axis_user_def).rehsape(-1)
+                self_axis = copy.deepcopy(self_axis_user_def).reshape(-1)
             else: pass
             
-            if ROI_keyword == 'meltpool':
+            if ROI_keyword == 'meltpool' and self._isMeltpool:
                 straightened_version = self._center_rotate_image(self.meltpool_pixel_index_array, 
                                                                  self.meltpool_pixel_intensity_array, 
                                                                  self.meltpool_center_pt, self_axis, align_axis)
@@ -438,6 +546,14 @@ class Frame(imgBasics.Image):
                 straightened_version = self.refine_asper_threshold(straightened_version, 
                                                                    self.intensity_threshold[0])
                 self.visible_image_straightened = copy.deepcopy(straightened_version)
+            
+            elif ROI_keyword == 'spatters' and self._isSpatter:
+                straightened_version = self._center_rotate_image(self.spatters_pixel_index_array, 
+                                                                 self.spatters_pixel_intensity_array, 
+                                                                 self.meltpool_center_pt, self_axis, align_axis) # Can change center point of meltpool or mass. 
+                straightened_version = self.refine_asper_threshold(straightened_version, 
+                                                                   self.intensity_threshold[0])
+                self.spatters_image_straightened = copy.deepcopy(straightened_version)
                 
             elif (ROI_keyword == 'other' and pixel_index_array_user_def is not None and 
                   pixel_val_array_user_def is not None and pixel_center_array_user_def is not None):
@@ -451,7 +567,7 @@ class Frame(imgBasics.Image):
         
         else: pass
 
-        return straightened_version
+        return copy.deepcopy(straightened_version)
 
 
     @staticmethod
@@ -499,8 +615,6 @@ class MeltPool(Frame):
         self.width = None # Float. 
         
         
-
-
 def main():
     """
     """

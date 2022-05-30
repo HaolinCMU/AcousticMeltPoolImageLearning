@@ -35,6 +35,9 @@ from training import *
 from dataset import *
 
 
+COLORS_MAP_LIST = ['red', 'green', 'blue', 'orange', 'purple', 
+                   'pink', 'gray', 'cyan', 'brown', 'olive'] # 10 different colors. 
+
 def kmeans_clustering(data_matrix, n_clusters=2):
     """
     method: "DBSCAN" or "KMEANS". 
@@ -53,8 +56,8 @@ def tSNE_plot_2D(data, label_array, figure_name="tSNE_plot.png"):
     tsne = manifold.TSNE(n_components=2, init='pca', random_state=0)
     Y = tsne.fit_transform(data)
     
-    colors_map_list = ['red', 'green', 'blue', 'orange', 'purple', 
-                       'pink', 'gray', 'cyan', 'brown', 'olive']
+    colors_map_list = COLORS_MAP_LIST
+
     color_plot_list = []
     for i in range(data.shape[0]):
         color_plot_list.append(colors_map_list[label_array[i]%len(colors_map_list)])
@@ -69,7 +72,7 @@ def tSNE_plot_2D(data, label_array, figure_name="tSNE_plot.png"):
 
 
 if __name__ == "__main__":
-    result_directory = "result/4th_bottleneck=32"
+    result_directory = "result/7th_bottleneck=2"
     figure_directory = os.path.join(result_directory, "figures")
     cluster_directory = os.path.join(result_directory, "clusters")
 
@@ -132,7 +135,7 @@ if __name__ == "__main__":
 
     # ===
 
-    n_clusters = 10
+    n_clusters = 3
 
     # ===
     # Test set clustering & t-SNE. 
@@ -151,10 +154,10 @@ if __name__ == "__main__":
     # Copy files only for test dataset. 
     clr_dir(cluster_directory)
     for i in range(n_clusters): 
-        subfolder_path_temp = os.path.join(cluster_directory, "{}".format(i))
+        subfolder_path_temp = os.path.join(cluster_directory, "{}_{}".format(i, COLORS_MAP_LIST[i%len(COLORS_MAP_LIST)]))
         if not os.path.isdir(subfolder_path_temp): os.mkdir(subfolder_path_temp)
 
-        cluster_temp = test_set_ind[np.where(kmeans_label_array_mu_test==i)]
+        cluster_temp = test_set_ind[np.where(kmeans_label_array_mu_test==i)] # Ove files according to clustering results of `mu`.
 
         for ind in cluster_temp:
             shutil.copy(output_data_repo_dict[str(ind)][2], subfolder_path_temp+'/')
