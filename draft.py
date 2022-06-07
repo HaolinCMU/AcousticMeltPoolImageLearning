@@ -71,8 +71,27 @@ def tSNE_plot_2D(data, label_array, figure_name="tSNE_plot.png"):
     plt.savefig(figure_name)
 
 
+def plot_2D(data, label_array, figure_name="plot_2D.png"):
+    """
+    """
+    
+    colors_map_list = COLORS_MAP_LIST
+
+    color_plot_list = []
+    for i in range(data.shape[0]):
+        color_plot_list.append(colors_map_list[label_array[i]%len(colors_map_list)])
+    
+    plt.figure(figsize=(20,20))
+    plt.rcParams.update({"font.size": 35})
+    plt.tick_params(labelsize=35)
+    plt.scatter(data[:,0], data[:,1], c=color_plot_list, cmap=plt.cm.Spectral, linewidths=1.0)
+    plt.gca().set_aspect('equal', adjustable='box')
+    
+    plt.savefig(figure_name)
+
+
 if __name__ == "__main__":
-    result_directory = "result/7th_bottleneck=2"
+    result_directory = "result/18"
     figure_directory = os.path.join(result_directory, "figures")
     cluster_directory = os.path.join(result_directory, "clusters")
 
@@ -88,9 +107,9 @@ if __name__ == "__main__":
     generations_list_train_path = os.path.join(result_directory, "generations_list_train.npy")
 
     latent_list_test_path = os.path.join(result_directory, "latent_list_test.npy")
-    mu_list_test_path = os.path.join(result_directory, "mu_list_test.npy")
+    # mu_list_test_path = os.path.join(result_directory, "mu_list_test.npy")
     latent_list_train_path = os.path.join(result_directory, "latent_list_train.npy")
-    mu_list_train_path = os.path.join(result_directory, "mu_list_train.npy")
+    # mu_list_train_path = os.path.join(result_directory, "mu_list_train.npy")
 
     test_set_ind_array_path = os.path.join(result_directory, "test_set_ind_array.npy")
     train_set_ind_array_path = os.path.join(result_directory, "train_set_ind_array.npy")
@@ -104,9 +123,9 @@ if __name__ == "__main__":
     gr_list_train = np.load(generations_list_train_path)
 
     latent_list_test = np.load(latent_list_test_path)
-    mu_list_test = np.load(mu_list_test_path)
+    # mu_list_test = np.load(mu_list_test_path)
     latent_list_train = np.load(latent_list_train_path)
-    mu_list_train = np.load(mu_list_train_path)
+    # mu_list_train = np.load(mu_list_train_path)
     
     # ======= Special case, remove after debugging =======
     # latent_list_train = np.load(latent_list_train_path, allow_pickle=True)
@@ -142,14 +161,22 @@ if __name__ == "__main__":
     latent_test_data = latent_list_test.reshape(latent_list_test.shape[0], -1)
     kmeans_latent_test = kmeans_clustering(latent_test_data, n_clusters)
     kmeans_label_array_latent_test, kmeans_center_array_latent_test = kmeans_latent_test.labels_, kmeans_latent_test.cluster_centers_
-    tSNE_plot_2D(latent_test_data, kmeans_label_array_latent_test, 
-                 figure_name=os.path.join(figure_directory, "latent_test_tsne_c={}.png".format(n_clusters)))
+    if latent_test_data.shape[1] == 2: 
+        plot_2D(latent_test_data, kmeans_label_array_latent_test, 
+                figure_name=os.path.join(figure_directory, "latent_test_c={}.png".format(n_clusters)))
+    else: 
+        tSNE_plot_2D(latent_test_data, kmeans_label_array_latent_test, 
+                    figure_name=os.path.join(figure_directory, "latent_test_tsne_c={}.png".format(n_clusters)))
     
-    mu_test_data = mu_list_test.reshape(mu_list_test.shape[0], -1)
-    kmeans_mu_test = kmeans_clustering(mu_test_data, n_clusters)
-    kmeans_label_array_mu_test, kmeans_center_array_mu_test = kmeans_mu_test.labels_, kmeans_mu_test.cluster_centers_
-    tSNE_plot_2D(mu_test_data, kmeans_label_array_mu_test, 
-                 figure_name=os.path.join(figure_directory, "mu_test_tsne_c={}.png".format(n_clusters)))
+    # mu_test_data = mu_list_test.reshape(mu_list_test.shape[0], -1)
+    # kmeans_mu_test = kmeans_clustering(mu_test_data, n_clusters)
+    # kmeans_label_array_mu_test, kmeans_center_array_mu_test = kmeans_mu_test.labels_, kmeans_mu_test.cluster_centers_
+    # if mu_test_data.shape[1] == 2:
+    #     plot_2D(mu_test_data, kmeans_label_array_mu_test, 
+    #             figure_name=os.path.join(figure_directory, "mu_test_c={}.png".format(n_clusters)))
+    # else:
+    #     tSNE_plot_2D(mu_test_data, kmeans_label_array_mu_test, 
+    #                 figure_name=os.path.join(figure_directory, "mu_test_tsne_c={}.png".format(n_clusters)))
 
     # Copy files only for test dataset. 
     clr_dir(cluster_directory)
@@ -157,7 +184,8 @@ if __name__ == "__main__":
         subfolder_path_temp = os.path.join(cluster_directory, "{}_{}".format(i, COLORS_MAP_LIST[i%len(COLORS_MAP_LIST)]))
         if not os.path.isdir(subfolder_path_temp): os.mkdir(subfolder_path_temp)
 
-        cluster_temp = test_set_ind[np.where(kmeans_label_array_mu_test==i)] # Ove files according to clustering results of `mu`.
+        # cluster_temp = test_set_ind[np.where(kmeans_label_array_mu_test==i)] # Move files according to clustering results of `mu`.
+        cluster_temp = test_set_ind[np.where(kmeans_label_array_latent_test==i)] # Move files according to clustering results of `latent`.
 
         for ind in cluster_temp:
             shutil.copy(output_data_repo_dict[str(ind)][2], subfolder_path_temp+'/')
@@ -167,14 +195,22 @@ if __name__ == "__main__":
     latent_train_data = latent_list_train.reshape(latent_list_train.shape[0], -1)
     kmeans_latent_train = kmeans_clustering(latent_train_data, n_clusters)
     kmeans_label_array_latent_train, kmeans_center_array_latent_train = kmeans_latent_train.labels_, kmeans_latent_train.cluster_centers_
-    tSNE_plot_2D(latent_train_data, kmeans_label_array_latent_train, 
-                 figure_name=os.path.join(figure_directory, "latent_train_tsne_c={}.png".format(n_clusters)))
+    if latent_train_data.shape[1] == 2: 
+        plot_2D(latent_train_data, kmeans_label_array_latent_train, 
+                figure_name=os.path.join(figure_directory, "latent_train_c={}.png".format(n_clusters)))
+    else:
+        tSNE_plot_2D(latent_train_data, kmeans_label_array_latent_train, 
+                    figure_name=os.path.join(figure_directory, "latent_train_tsne_c={}.png".format(n_clusters)))
     
-    mu_train_data = mu_list_train.reshape(mu_list_train.shape[0], -1)
-    kmeans_mu_train = kmeans_clustering(mu_train_data, n_clusters)
-    kmeans_label_array_mu_train, kmeans_center_array_mu_train = kmeans_mu_train.labels_, kmeans_mu_train.cluster_centers_
-    tSNE_plot_2D(mu_train_data, kmeans_label_array_mu_train, 
-                 figure_name=os.path.join(figure_directory, "mu_train_tsne_c={}.png".format(n_clusters)))
+    # mu_train_data = mu_list_train.reshape(mu_list_train.shape[0], -1)
+    # kmeans_mu_train = kmeans_clustering(mu_train_data, n_clusters)
+    # kmeans_label_array_mu_train, kmeans_center_array_mu_train = kmeans_mu_train.labels_, kmeans_mu_train.cluster_centers_
+    # if mu_train_data.shape[1] == 2:
+    #     plot_2D(mu_train_data, kmeans_label_array_mu_train, 
+    #             figure_name=os.path.join(figure_directory, "mu_train_c={}.png".format(n_clusters)))
+    # else:
+    #     tSNE_plot_2D(mu_train_data, kmeans_label_array_mu_train, 
+    #                 figure_name=os.path.join(figure_directory, "mu_train_tsne_c={}.png".format(n_clusters)))
     
 
     # Reconstructed images. 

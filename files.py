@@ -36,3 +36,10 @@ def clr_dir(directory):
         if os.path.isdir(path): 
             shutil.rmtree(path)
         else: os.remove(path)
+
+    
+def rename(src, dst):
+    """
+    """
+
+    os.rename(src, dst)

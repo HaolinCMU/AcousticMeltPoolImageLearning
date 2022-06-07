@@ -19,6 +19,7 @@ import torch.utils
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.image as mig
 import PIL
 
 from torch.utils.data import Dataset, DataLoader
@@ -66,8 +67,11 @@ class FrameAutoencoderDataset(Dataset):
 
         index = copy.deepcopy(str(int(index)))
 
-        input_img = PIL.Image.open(self._input_image_label_dict[index][2])
-        output_img = PIL.Image.open(self._output_image_label_dict[index][2])
+        # input_img = PIL.Image.open(self._input_image_label_dict[index][2])
+        # output_img = PIL.Image.open(self._output_image_label_dict[index][2])
+
+        input_img = PIL.Image.fromarray(np.uint8(mig.imread(self._input_image_label_dict[index][2])*255))
+        output_img = PIL.Image.fromarray(np.uint8(mig.imread(self._output_image_label_dict[index][2])*255))
 
         if self.input_image_transform:
             input_img = copy.deepcopy(self.input_image_transform(input_img).to(self.image_dtype)) # Transformed tensor of prescribed data type. [c, h, w]. 

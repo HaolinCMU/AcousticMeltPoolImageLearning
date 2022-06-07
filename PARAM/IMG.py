@@ -19,7 +19,7 @@ DBSCAN_MIN_PTS = 5
 # PCA PARAM - one frame. 
 PC_NUM_FRAME = 2
 PCA_MODE_FRAME = 'transpose'
-IMG_STRAIGHTEN_KEYWORD = 'spatters' # Default: total. Can be one of the following: 'meltpool', 'total', 'spatters' or 'other'. 
+IMG_STRAIGHTEN_KEYWORD = 'total' # Default: total. Can be one of the following: 'meltpool', 'total', 'spatters' or 'other'. 
 FRAME_ALIGN_MODE = 'principal' # 'principal' or 'secondary' or 'other'. 
 FRAME_REALIGN_AXIS_VECT = np.array([0.,1.])
 
