@@ -74,9 +74,9 @@ class FrameAutoencoderDataset(Dataset):
         output_img = PIL.Image.fromarray(np.uint8(mig.imread(self._output_image_label_dict[index][2])*255))
 
         if self.input_image_transform:
-            input_img = copy.deepcopy(self.input_image_transform(input_img).to(self.image_dtype)) # Transformed tensor of prescribed data type. [c, h, w]. 
+            input_img = copy.deepcopy(self.input_image_transform(input_img).to(self.image_dtype)) # Transformed tensor of prescribed data type. [c, h, w]. Intensity range: 0-1. 
         if self.output_image_transform:
-            output_img = copy.deepcopy(self.output_image_transform(output_img).to(self.image_dtype)) # Transformed tensor of prescribed data type. [c, h, w]. 
+            output_img = copy.deepcopy(self.output_image_transform(output_img).to(self.image_dtype)) # Transformed tensor of prescribed data type. [c, h, w]. Intensity range: 0-1. 
 
         # # ---------- Reshape tensors to make them compatible with NN ---------- 
         # input_img_c, input_img_h, input_img_w = input_img.size()

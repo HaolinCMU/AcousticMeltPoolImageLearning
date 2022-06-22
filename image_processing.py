@@ -372,7 +372,7 @@ class Frame(imgBasics.Image):
         if not self._isEmpty and self._isMeltpool: 
             pca_coder = pca.PCA(self.meltpool_pixel_index_array.astype(float), 
                                 PC_num=PC_NUM_FRAME, mode=PCA_MODE_FRAME)
-            self._meltpool_principal_axes = pca_coder.eigFaces()
+            self._meltpool_principal_axes = pca_coder.eigFaces
         else:
             self._meltpool_principal_axes = np.array([[0., 1.], [1., 0.]])
 
@@ -584,7 +584,7 @@ class Frame(imgBasics.Image):
         """
         
         hu_moments = moments.HuMoments(image_matrix=image_matrix)
-        hu_moments_array = hu_moments.Hu_moments()
+        hu_moments_array = hu_moments.Hu_moments
 
         if feature_ind_list != []: 
             return np.array([hu_moments_array[i] for i in feature_ind_list]).reshape(-1)

@@ -109,11 +109,10 @@ if __name__ == "__main__":
 
             for img_ind, img_filepath in enumerate(img_filepath_perSubFolder_list): # Image data processing part can be separated from the main workflow. 
                 frame_temp = Frame(img_filepath)
-                meltpool_straightened_image_temp = frame_temp.straighten(args.img_straighten_keyword, 
-                                                                         args.frame_align_mode,
-                                                                         args.frame_realign_axis_vect) # Get straightened meltpool image.
+                straightened_image_temp = frame_temp.straighten(args.img_straighten_keyword, args.frame_align_mode,
+                                                                args.frame_realign_axis_vect) # Get straightened meltpool image.
 
-                img_processed_temp = copy.deepcopy(meltpool_straightened_image_temp)
+                img_processed_temp = copy.deepcopy(straightened_image_temp)
                 if not args.is_binary: img_processed_temp = PIL.Image.fromarray(np.uint8(img_processed_temp*255)) # Not binarizing the image, keeping the original intensity values. 
                 else: img_processed_temp = PIL.Image.fromarray(np.uint8(frame_temp.binarize(img_processed_temp)*255)) # Binarize image and convert it to `uint8` data type. 
                 img_processed_temp = transforms.Resize(args.image_size)(img_processed_temp)
