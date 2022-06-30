@@ -23,7 +23,7 @@ class PCA(object):
     """
     """
 
-    def __init__(self, data_matrix, PC_num, mode='normal'):
+    def __init__(self, training_matrix, PC_num, mode='normal'):
         """
         training_matrix with Axis-0 be the sample axis. 
         mode: 'normal' (default) or 'transpose'. 
@@ -34,9 +34,9 @@ class PCA(object):
         self.mode = mode
         self.PC_num = PC_num
 
-        if self.mode == 'normal': self.matrix = data_matrix
-        elif self.mode == 'transpose': self.matrix = data_matrix.T
-        else: self.matrix = np.eye(data_matrix.shape[0])
+        if self.mode == 'normal': self.matrix = training_matrix
+        elif self.mode == 'transpose': self.matrix = training_matrix.T
+        else: self.matrix = np.eye(training_matrix.shape[0])
         
         self._mean_vect = None
         self._eigFace_matrix = None
@@ -118,7 +118,6 @@ class PCA(object):
         self._update_eigFaces_weights()
 
 
-    @property
     def eigFaces(self):
         """
         """
@@ -126,7 +125,6 @@ class PCA(object):
         return self._eigFace_matrix
 
 
-    @property
     def weights(self):
         """
         """

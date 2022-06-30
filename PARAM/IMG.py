@@ -8,9 +8,13 @@ Created on Fri Jan 28 01:19:34 2022
 import os
 import numpy as np
 
-INTENSITY_THRESHOLD = (0.1, 0.6) # Default: Melt pool & Bright spatters: (0.8, 1.0). 
+INTENSITY_THRESHOLD = (0.6, 1.0) # Default: (0.8, 1.0). The intensity threshold of melt pool & bright spatters. 
+SIDEBAR_COLUMNS = [(0,32), (479,511)] # The column range of side bars. Default: [(0, 32), (479, 511)]. 
+SIDEBAR_THRESHOLD = 0.05
+PLUME_THRESHOLD = (0.05, 0.4) # Default: (0.05, 0.4). The intensity threshold of plume and part of the melted track. 
+
 IMAGE_SIZE = [512, 512] # [h, w]. The eventual size of processed image. Typically stay unchanged. We can change the input size right before training. 
-IS_BINARY = False # Default: True. Whether to binarize the eventual processed frame. 
+IS_BINARY = True # Default: True. Whether to binarize the eventual processed frame. 
 
 # DBSCAN PARAM
 DBSCAN_EPSILON = 2

@@ -50,7 +50,6 @@ class HuMoments(Image):
         self.Hu_moments_array = Hu_moments_array.reshape(-1)
 
 
-    @property
     def Hu_moments(self):
         """
         """

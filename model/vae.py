@@ -30,6 +30,134 @@ from torch.autograd import Variable
 from PARAM import *
 
 
+class Flatten(nn.Module):
+    """
+    """
+
+    def forward(self, input):
+        return input.view(input.size()[0], -1)
+
+
+class UnFlatten(nn.Module):
+    """
+    """
+
+    def forward(self, input, size):
+        return input.view(input.size()[0], size, 1, 1)
+
+
+class Encoder(nn.Module):
+    """
+    """
+
+    pass
+
+
+class Decoder(nn.Module):
+    """
+    """
+
+    pass
+
+
+class AutoEncoder_Linear(nn.Module):
+    """
+    """
+
+    def __init__(self):
+        """
+        """
+
+        super(AutoEncoder_Linear, self).__init__()
+
+        pass
+
+
+class AutoEncoder_Conv(nn.Module):
+    """
+    """
+
+    def __init__(self, encoder_layer_num, decoder_layer_num, ):
+        """
+        """
+
+        super(AutoEncoder_Conv, self).__init__()
+
+        pass
+
+
+class VAE_Linear(nn.Module):
+    """
+    """
+
+    def __init__(self):
+        """
+        """
+
+        super(VAE_Linear, self).__init__()
+
+        pass
+
+
+class VAE_Conv(nn.Module):
+    """
+    """
+
+    def __init__(self, input_dim, latent_dim, enc_archi_dict, dec_archi_dict, 
+                 latent_distrib='Gaussian'):
+        """
+        """
+
+        super(VAE_Conv, self).__init__()
+        self.input_dim = input_dim
+        self.latent_dim = latent_dim
+        self.enc_archi_dict = copy.deepcopy(enc_archi_dict)
+        self.dec_archi_dict = copy.deepcopy(dec_archi_dict)
+        self.latent_distrib = latent_distrib
+
+        # Encoder. 
+        self._enc_is_convBatchNorm = self.enc_archi_dict['is_convBatchNorm']
+        self._enc_is_convPooling = self.enc_archi_dict['is_convPooling']
+        self._enc_is_convDropout = self.enc_archi_dict['is_convDropout']
+
+        self._enc_conv_layer_num = self.enc_archi_dict['conv_layer_num']
+        self._enc_conv_kernel_sizes = self.enc_archi_dict['conv_kernel_sizes'] # A list or array. 
+        self._enc_conv_paddings = self.enc_archi_dict['conv_paddings'] # A list or array. 
+        self._enc_conv_strides = self.enc_archi_dict['conv_strides'] # A list or array. 
+        self._enc_conv_dilation = self.enc_archi_dict['conv_dilation']
+        self._enc_conv_dropout_ratio = self.enc_archi_dict['conv_dropout_ratio']
+
+        self._enc_poolingLayer = self.enc_archi_dict['poolingLayer'] # Pooling layer type. 
+        self._enc_pooling_kernel_size = self.enc_archi_dict['pooling_kernel_size'] # A single number. 
+        self._enc_pooling_padding = self.enc_archi_dict['pooling_padding']
+        self._enc_pooling_stride = self.enc_archi_dict['pooling_stride']
+        
+        self._enc_conv_channel_num_init = self.enc_archi_dict['conv_channel_num_init']
+        self._enc_conv_channel_num_multiplier = self.enc_archi_dict['conv_channel_num_multiplier']
+        self._enc_conv_predef_channel_num_list = self.enc_archi_dict['conv_predef_channel_num_list']
+
+        self._enc_is_mlpBatchNorm = self.enc_archi_dict['is_mlpBatchNorm']
+        self._enc_is_mlpDropout = self.enc_archi_dict['is_mlpDropout']
+
+        self._enc_mlp_layer_num = self.enc_archi_dict['mlp_layer_num']
+
+
+
+        
+        # self.mlp_layer_num = mlp_layer_num
+        # self._is_mlpBatchNorm = IS_MLP_BATCHNORM
+        # self._is_mlpDropout = IS_MLP_DROPOUT
+        self._mlp_1st_layer_num = ML_VAE.MLP_FIRST_LAYER_NUM
+        self._mlp_layer_num_decay_div = ML_VAE.MLP_LAYER_NUM_DECAY_DIV
+        
+        self._activationLayer = ML_VAE.ACTIVATION_LAYER
+
+
+        self.hidden_1 = nn.Conv2d()
+
+        pass
+
+
 class VAE_Conv_test(nn.Module):
     """
     Only for validation. 
@@ -82,20 +210,8 @@ class VAE_Conv_test(nn.Module):
         self._enc_output_mu = nn.Linear(self._bottle_neck_dim, self._latent_dim)
         self._enc_output_logvar = nn.Linear(self._bottle_neck_dim, self._latent_dim)
         self._dec_fc_hidden_1 = nn.Sequential(nn.Linear(self._latent_dim, self._bottle_neck_dim),
+                                              # nn.Dropout(0.5)
                                               ) # (16, ) -> (512, ). 
-
-        # Bottleneck
-        # self._enc_output_mu = nn.Sequential(nn.Linear(self._bottle_neck_dim, int(2*self._latent_dim)),
-        #                                     ML_VAE.ACTIVATION_LAYER,
-        #                                     nn.Linear(int(2*self._latent_dim), self._latent_dim))
-        # self._enc_output_logvar = nn.Sequential(nn.Linear(self._bottle_neck_dim, int(2*self._latent_dim)),
-        #                                         ML_VAE.ACTIVATION_LAYER,
-        #                                         nn.Linear(int(2*self._latent_dim), self._latent_dim))
-        # self._dec_fc_hidden_1 = nn.Sequential(nn.Linear(self._latent_dim, int(2*self._latent_dim)),
-        #                                       ML_VAE.ACTIVATION_LAYER, 
-        #                                       nn.Linear(int(2*self._latent_dim), self._bottle_neck_dim),
-        #                                       ML_VAE.ACTIVATION_LAYER
-        #                                       ) # (16, ) -> (512, ). 
 
         # Unflatten(). 
 

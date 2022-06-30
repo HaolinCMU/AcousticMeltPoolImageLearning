@@ -31,15 +31,23 @@ class Frame(imgBasics.Image):
     """
     """
 
-    def __init__(self, file_path=None, image_matrix=np.array([None]), 
-                 intensity_threshold=INTENSITY_THRESHOLD):
+    def __init__(self, file_path=None, image_matrix=np.array([None]), intensity_threshold=INTENSITY_THRESHOLD, 
+                 sidebar_threshold=SIDEBAR_THRESHOLD, sidebar_columns=SIDEBAR_COLUMNS, plume_threshold=PLUME_THRESHOLD):
         """
         """
 
         super(Frame, self).__init__(file_path, image_matrix)
-        self.intensity_threshold = intensity_threshold
+        self.intensity_threshold = intensity_threshold # Tuple of Floats. Two constant intensity thresholds that filter out the bright melt pool and spatters. 
+        self.sidebar_threshold = sidebar_threshold # Float. A constant intensity threshold for sidebar filtering. Default: 0.05. 
+        self.sidebar_columns = sidebar_columns # List of tuples. Two tuples of int that prescribe the range of side bar. 
+        self.plume_threshold = plume_threshold # Tuple of Floats. Two constant intensity thresholds that filter out the plumes. 
         self._isEmpty = False # Boolean. True if no pixels satisfy the intensity threshold. 
-
+        
+        # Original. 
+        self.original_image_matrix = copy.deepcopy(self.image_matrix) # 2D array of Float. (512, 512). 0.-1. Save a copy of original unprocessed image matrix. 
+        self.original_pixel_index_array = None
+        self.original_pixel_intensity_array = None
+        
         # Total. 
         self._bright_pixel_index_array = np.array([[None, None]])
         self._bright_pixel_intensity_array = np.array([None]) # Same order as `self._bright_pixel_index_array`. 
@@ -75,17 +83,26 @@ class Frame(imgBasics.Image):
         self._spatters_num = 0
         self._spatters_sizes = None
         self._spatters_distances = None
-
+        
+        # Plume. 
+        self._isPlume = False
+        self.plume_pixel_index_array = None
+        self.plume_pixel_intensity_array = None
+        self._plume_image = None
+        self._plume_area = None
+        self._plume_convex_hull = None # Not employed. 
+        
+        # Straightened results. 
         self.visible_image_straightened = None
-        self._visible_pixel_index_straightened = np.array([[None, None]]) # Not employed. 
-        self.meltpool_image_straightened = None
-        self._meltpool_pixel_index_straightened = np.array([[None, None]]) # Not employed. 
+        self.meltpool_image_straightened = None 
         self.spatters_image_straightened = None
-        self._spatters_pixel_index_straightened = np.array([[None, None]]) # Not employed. 
-
+        self.plume_image_straightened = None
+        
+        self._preprocess()
         self._thresholding()
         self._set_meltpool()
         self._set_spatters()
+        self._set_plume()
     
 
     @property
@@ -102,6 +119,14 @@ class Frame(imgBasics.Image):
         """
 
         return self._meltpool_area
+    
+    
+    @property
+    def plume_area(self):
+        """
+        """
+
+        return self._plume_area
 
 
     @property
@@ -145,6 +170,15 @@ class Frame(imgBasics.Image):
 
         return self.spatters_pixel_index_array
     
+    
+    @property
+    def frame(self):
+        """
+        Return the original, unprocessed image matrix. 
+        """
+        
+        return self.original_image_matrix
+
 
     @property
     def thresheld_image(self):
@@ -168,7 +202,15 @@ class Frame(imgBasics.Image):
         """
 
         return self._spatters_image
+    
+    
+    @property
+    def plume_image(self):
+        """
+        """
 
+        return self._plume_image
+    
     
     @property
     def meltpool_length(self):
@@ -207,6 +249,27 @@ class Frame(imgBasics.Image):
         return max(inner_product_array) - min(inner_product_array)
     
     
+    def _preprocess(self):
+        """
+        Remove background noise locating at the two visible bright bars on both sides of the image frame. 
+        """
+        
+        preprocessed_matrix = copy.deepcopy(self.original_image_matrix)
+        
+        for sidebar_col_range in self.sidebar_columns:
+            preprocessed_matrix[:,sidebar_col_range[0]:sidebar_col_range[1]+1]\
+                               [np.where(preprocessed_matrix[:,sidebar_col_range[0]:sidebar_col_range[1]+1]\
+                                         <self.sidebar_threshold)] = self._default_background_value
+        
+        self.image_matrix = copy.deepcopy(preprocessed_matrix)
+        
+        # Save pixels and intensity values of the original image. 
+        original_indices_array_row_col = np.where(np.logical_and(self.image_matrix >= 0., self.image_matrix <= 1.))
+        self.original_pixel_index_array = np.vstack((original_indices_array_row_col[0], 
+                                                     original_indices_array_row_col[1])).astype(int).T # [row | col]; [Axis-0 | Axis-1].
+        self.original_pixel_intensity_array = copy.deepcopy(self.image_matrix.reshape(-1))
+        
+    
     def _set_meltpool_dimensions(self):
         """
         """
@@ -228,7 +291,7 @@ class Frame(imgBasics.Image):
         `pixel_index_array`: shape=(n_sample, n_feature)
         `img_val_array`: shape=(n_sample,), following the same order. 
         """
-
+ 
         image_dim_0, image_dim_1 = image.shape
         image_specified = copy.deepcopy(image)
 
@@ -273,12 +336,13 @@ class Frame(imgBasics.Image):
         return copy.deepcopy(filtered_image_matrix)
 
 
-    def binarize(self, image_matrix):
+    def binarize(self, image_matrix, threshold=None):
         """
-        Used for contour extraction. 
+        Binarize image by filtering out all background pixels. 
         """
 
-        return (image_matrix>self._default_background_value).astype(float)
+        if threshold is None: return (image_matrix>self._default_background_value).astype(float)
+        else: return (image_matrix>threshold).astype(float)
 
 
     def _centering(self, pixel_index_array, center_pt):
@@ -309,13 +373,14 @@ class Frame(imgBasics.Image):
 
     def _thresholding(self):
         """
-        Extract the indices of pixels with intensity values fallen in between the range defined by `self.intensity_threshold`. 
+        Use thresholds to filter different regions of frame of interest. 
         """
-
-        indices_array_row_col = np.where(np.logical_and(self.image_matrix >= self.intensity_threshold[0], 
-                                                        self.image_matrix <= self.intensity_threshold[1]))
-        self._bright_pixel_index_array = np.vstack((indices_array_row_col[0], 
-                                                    indices_array_row_col[1])).astype(int).T # [row | col]; [Axis-0 | Axis-1].
+        
+        # Bright pixels. 
+        bright_indices_array_row_col = np.where(np.logical_and(self.image_matrix >= self.intensity_threshold[0], 
+                                                               self.image_matrix <= self.intensity_threshold[1]))
+        self._bright_pixel_index_array = np.vstack((bright_indices_array_row_col[0], 
+                                                    bright_indices_array_row_col[1])).astype(int).T # [row | col]; [Axis-0 | Axis-1].
         self._total_area = self._bright_pixel_index_array.shape[0]
 
         if self._total_area != 0:
@@ -331,6 +396,13 @@ class Frame(imgBasics.Image):
             self._bright_pixel_intensity_array = np.array([None])
             self.visible_image = self.blank_version()
             self.mass_center_pt = np.array([self.length()/2., self.width()/2.]).astype(int).reshape(-1)
+            
+        # Plume pixels. 
+        plume_indices_array_row_col = np.where(np.logical_and(self.image_matrix >= self.plume_threshold[0], 
+                                                              self.image_matrix <= self.plume_threshold[1]))
+        self.plume_pixel_index_array = np.vstack((plume_indices_array_row_col[0], 
+                                                  plume_indices_array_row_col[1])).astype(int).T # [row | col]; [Axis-0 | Axis-1].
+        self._plume_area = self.plume_pixel_index_array.shape[0]
 
 
     def _set_meltpool(self):
@@ -363,6 +435,8 @@ class Frame(imgBasics.Image):
         
         self._set_meltpool_principal_axes()
         self._set_meltpool_dimensions()
+        self._compute_meltpool_spatial_skewness(axis=self._meltpool_axis_of('principal')) # Default: spatial skewness along 'principal' axis. 
+        self._compute_intensity_kurtosis() # Default: intensity kurtosis of 'meltpool'. 
 
     
     def _set_meltpool_principal_axes(self):
@@ -372,7 +446,7 @@ class Frame(imgBasics.Image):
         if not self._isEmpty and self._isMeltpool: 
             pca_coder = pca.PCA(self.meltpool_pixel_index_array.astype(float), 
                                 PC_num=PC_NUM_FRAME, mode=PCA_MODE_FRAME)
-            self._meltpool_principal_axes = pca_coder.eigFaces
+            self._meltpool_principal_axes = pca_coder.eigFaces()
         else:
             self._meltpool_principal_axes = np.array([[0., 1.], [1., 0.]])
 
@@ -409,6 +483,38 @@ class Frame(imgBasics.Image):
             self._meltpool_spatial_skewness = skew(inner_product_array)
         
         return self._meltpool_spatial_skewness
+
+    
+    def _compute_intensity_kurtosis(self, keyword='meltpool'): 
+        """
+        """
+
+        kurtosis_val = None
+
+        if keyword == 'meltpool':
+            if not self._isEmpty and self._isMeltpool: 
+                kurtosis_val = kurtosis(self.meltpool_pixel_intensity_array)
+            else: pass
+
+            self._meltpool_intensity_kurtosis = kurtosis_val
+
+        elif keyword == 'total':
+            if not self._isEmpty: 
+                kurtosis_val = kurtosis(self._bright_pixel_intensity_array)
+            else: pass
+
+            self._total_intensity_kurtosis = kurtosis_val
+
+        elif keyword == 'spatters':
+            if not self._isEmpty and self._isSpatter: 
+                kurtosis_val = kurtosis(self.spatters_pixel_intensity_array)
+            else: pass
+
+            self._spatters_intensity_kurtosis = kurtosis_val
+
+        else: pass
+    
+        return kurtosis_val
     
 
     def _set_spatters(self):
@@ -444,37 +550,25 @@ class Frame(imgBasics.Image):
             
         else: pass
     
-
-    def _compute_intensity_kurtosis(self, keyword='meltpool'): 
-        """
-        """
-
-        kurtosis_val = None
-
-        if keyword == 'meltpool':
-            if not self._isEmpty and self._isMeltpool: 
-                kurtosis_val = kurtosis(self.meltpool_pixel_intensity_array)
-            else: pass
-
-            self._meltpool_intensity_kurtosis = kurtosis_val
-
-        elif keyword == 'total':
-            if not self._isEmpty: 
-                kurtosis_val = kurtosis(self._bright_pixel_intensity_array)
-            else: pass
-
-            self._total_intensity_kurtosis = kurtosis_val
-
-        elif keyword == 'spatters':
-            if not self._isEmpty and self._isSpatter: 
-                kurtosis_val = kurtosis(self.spatters_pixel_intensity_array)
-            else: pass
-
-            self._spatters_intensity_kurtosis = kurtosis_val
-
-        else: pass
     
-        return kurtosis_val
+    def _set_plume(self):
+        """
+        """
+        
+        self._isPlume = False
+        self.plume_pixel_intensity_array = None
+        self._plume_image = self.blank_version()
+        
+        if not self._isEmpty and self._isMeltpool:
+            if self._plume_area != 0:
+                self._isPlume = True
+                self.plume_pixel_intensity_array = copy.deepcopy(np.array([self.image_matrix[i,j] 
+                                                                           for i,j in self.plume_pixel_index_array]).reshape(-1))
+                self._plume_image = self._filter_image(self.plume_pixel_index_array)
+            
+            else: pass
+        
+        else: pass
     
    
     def _set_straighten_angle(self, meltpool_axis, align_axis=np.array([0.,1.])):
@@ -518,7 +612,7 @@ class Frame(imgBasics.Image):
                    self_axis_user_def=None, pixel_index_array_user_def=None, pixel_val_array_user_def=None, 
                    pixel_center_array_user_def=None):
         """
-        ROI_keyword: 'meltpool' or 'total' or 'other'. 
+        ROI_keyword: 'meltpool' or 'total' or 'spatter' or 'plume' or 'original' or 'other'. 
         self_axis_keyword: 'principal' or 'secondary' or 'other'. 
         """
 
@@ -531,7 +625,13 @@ class Frame(imgBasics.Image):
                 self_axis = copy.deepcopy(self_axis_user_def).reshape(-1)
             else: pass
             
-            if ROI_keyword == 'meltpool' and self._isMeltpool:
+            if ROI_keyword == 'original':
+                straightened_version = self._center_rotate_image(self.original_pixel_index_array, 
+                                                                 self.original_pixel_intensity_array, 
+                                                                 self.meltpool_center_pt, self_axis, align_axis) # Can change center point of meltpool or mass (total). 
+                self.meltpool_image_straightened = copy.deepcopy(straightened_version)
+            
+            elif ROI_keyword == 'meltpool' and self._isMeltpool:
                 straightened_version = self._center_rotate_image(self.meltpool_pixel_index_array, 
                                                                  self.meltpool_pixel_intensity_array, 
                                                                  self.meltpool_center_pt, self_axis, align_axis)
@@ -554,7 +654,15 @@ class Frame(imgBasics.Image):
                 straightened_version = self.refine_asper_threshold(straightened_version, 
                                                                    self.intensity_threshold[0])
                 self.spatters_image_straightened = copy.deepcopy(straightened_version)
-                
+            
+            elif ROI_keyword == 'plume' and self._isPlume: 
+                straightened_version = self._center_rotate_image(self.plume_pixel_index_array, 
+                                                                 self.plume_pixel_intensity_array, 
+                                                                 self.meltpool_center_pt, self_axis, align_axis) # Can change center point of meltpool or mass. 
+                straightened_version = self.refine_asper_threshold(straightened_version, 
+                                                                   self.plume_threshold[0])
+                self.plume_image_straightened = copy.deepcopy(straightened_version)
+            
             elif (ROI_keyword == 'other' and pixel_index_array_user_def is not None and 
                   pixel_val_array_user_def is not None and pixel_center_array_user_def is not None):
                 straightened_version = self._center_rotate_image(pixel_index_array_user_def, 
@@ -584,7 +692,7 @@ class Frame(imgBasics.Image):
         """
         
         hu_moments = moments.HuMoments(image_matrix=image_matrix)
-        hu_moments_array = hu_moments.Hu_moments
+        hu_moments_array = hu_moments.Hu_moments()
 
         if feature_ind_list != []: 
             return np.array([hu_moments_array[i] for i in feature_ind_list]).reshape(-1)
@@ -676,31 +784,9 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
-    # Test lines. 
-    
-    # file_path = 'C:/Users/hlinl/OneDrive/Desktop/New folder/Data/raw_image_data/Layer037_Section_07_S0001/Layer037_Section_07_S0001000388.png'
-    # frame = Frame(file_path=file_path, intensity_threshold=INTENSITY_THRESHOLD)
 
-    # meltpool_straightened_image = frame.straighten('meltpool', FRAME_ALIGN_MODE, FRAME_REALIGN_AXIS_VECT)
-    
-    # im = frame.binarize(meltpool_straightened_image).astype(np.uint8)
-    # contours, hierarchy = cv2.findContours(im, mode=cv2.RETR_TREE, 
-    #                                        method=cv2.CHAIN_APPROX_SIMPLE)
-
-    # cv2.drawContours(im, contours, -1, (0,255,0), 3)
-    # cv2.imshow('output', im)
-    
-    # i, color, size = 0, 'g', 0.5
-    
-    # plt.figure()
-    # plt.imshow(frame.image_matrix, cmap='gray')
-    
-    
-    # plt.figure()
-    # plt.imshow(meltpool_straightened_image, cmap='gray')
-    
-    # plt.figure()
-    # plt.imshow(meltpool_straightened_image, cmap='gray')
-    # plt.scatter(contours[i][:,0,0], contours[i][:,0,1], c=color, s=size)
-    
+    # A new way of implementation: 
+    # Use a large range of intensity threshold and filter out most of the pixels, then apply another intensity threshold \
+    #   on the biggest cluster to separate melt pool, track, plume and additional spatters. 
+    # Can we use Kalman filter to track the melt pool more accurately? 
+    # Frequently use @property method to define protected attributes, and else: pass to define function, and is None as conditions. 

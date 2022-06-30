@@ -38,24 +38,8 @@ def clr_dir(directory):
         else: os.remove(path)
 
     
-# def rename(src, dst):
-#     """
-#     """
-
-#     os.rename(src, dst)
-
-
-if __name__ == "__main__":
+def rename(src, dst):
     """
     """
 
-    directory = "data/raw_image_data"
-    img_subfolder_list = os.listdir(directory) # List of subfolders of different layers.
-
-    for img_subfolder in img_subfolder_list:
-        img_subfolder_path = os.path.join(directory, img_subfolder)
-        img_filepath_perSubFolder_list = glob.glob(os.path.join(img_subfolder_path, 
-                                                                "*.{}".format('cihx'))) # List of image file paths of each layer's subfolder. 
-
-        for _, img_filepath in enumerate(img_filepath_perSubFolder_list):
-            os.remove(img_filepath)
+    os.rename(src, dst)
