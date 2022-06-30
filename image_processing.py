@@ -98,11 +98,11 @@ class Frame(imgBasics.Image):
         self.spatters_image_straightened = None
         self.plume_image_straightened = None
         
-        self._preprocess()
-        self._thresholding()
-        self._set_meltpool()
-        self._set_spatters()
-        self._set_plume()
+        self._preprocess() # Frame image preprocessing. 
+        self._thresholding() # Image thresholding. 
+        self._set_meltpool() # Define meltpool. 
+        self._set_spatters() # Define spatters. 
+        self._set_plume() # Define plume. 
     
 
     @property
@@ -474,13 +474,12 @@ class Frame(imgBasics.Image):
         axis: shape=(-1,)
         """
 
-        if self._isEmpty and not self._isMeltpool: 
-            self._meltpool_spatial_skewness = None
-
-        else:             
+        if not self._isEmpty and self._isMeltpool:             
             inner_product_array = imgBasics.projection_along_axis(self.meltpool_pixel_index_array, 
                                                                   self.meltpool_center_pt, axis)
             self._meltpool_spatial_skewness = skew(inner_product_array)
+        
+        else: self._meltpool_spatial_skewness = None
         
         return self._meltpool_spatial_skewness
 
@@ -790,3 +789,4 @@ if __name__ == "__main__":
     #   on the biggest cluster to separate melt pool, track, plume and additional spatters. 
     # Can we use Kalman filter to track the melt pool more accurately? 
     # Frequently use @property method to define protected attributes, and else: pass to define function, and is None as conditions. 
+
