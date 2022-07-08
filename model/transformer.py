@@ -23,8 +23,15 @@ from torch.utils.data import Dataset, DataLoader
 from PARAM import *
 
 
-class Transformer():
+class Transformer(nn.Module):
     """
     """
     
+    pass
+
+
+if __name__ == "__init__":
+    """
+    """
+
     pass
