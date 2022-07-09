@@ -5,11 +5,11 @@ raw_audio_folder_path = 'data/raw_audio_data';
 acoustic_data_folder_path = 'data/acoustic_data'; % Save generated wavelet spectrums. 
 
 audio_paths = dir(fullfile(raw_audio_folder_path, '*.wav'));
-audio_clip_length = 128; % In sample points. Corresponding to ~1ms audio and 30 image frames. 
-audio_sampling_stride = 64;
+audio_clip_length = 64; % In sample points. Length of 128 corresponds to ~(>)1ms audio and 30 image frames. 
+audio_sampling_stride = 32;
 fs = 96e3; % Sampling rate; 
-wavelet = 'bump';
-fig_resolution = 512;
+wavelet = 'amor'; % Default: 'amor' or 'bump'. 
+fig_resolution = 256; % Default: 512. 
 OMIT_DURATION = [0.069, 0.058, 0.061, 0.065, 0.061, 0.066, ...
                  0.065, 0.070, 0.064, 0.065, 0.062, ... 
                  0.063, 0.066, 0.063, 0.058, 0.063, 0.062, ...
@@ -21,10 +21,9 @@ OMIT_DURATION = [0.069, 0.058, 0.061, 0.065, 0.061, 0.066, ...
 poolobj = parpool(8);
 parfor i = 1:length(audio_paths)
     acoustic_data_subfolder_path = sprintf('%s/%04d', acoustic_data_folder_path, i-1);
-%     if exist(acoustic_data_subfolder_path, 'dir') ~= 0
-%         rmdir(acoustic_data_subfolder_path);
-%     end
-%     mkdir(acoustic_data_subfolder_path);
+    if exist(acoustic_data_subfolder_path, 'dir') == 0
+        mkdir(acoustic_data_subfolder_path);
+    end
 
     audio_path = sprintf('%s/%s', audio_paths(i).folder, audio_paths(i).name);
     [y, ~] = audioread(audio_path);
@@ -82,13 +81,33 @@ function CWT(data, wavelet, fs, fig_resolution, file_name)
 
     [cfs, frq] = cwt(data, wavelet, fs);
     t = 0:1/fs:(size(data,1)-1)/fs;
-
-    figure('visible','off');
+    
+%     % CWT scalogram only. 
+%     figure('visible','off');
+%     surface(t, frq, abs(cfs));
+%     shading flat;
+% %     set(gca,"yscale","log")
+%     set(gca, 'visible', 'off');
+%     set(colorbar, 'visible', 'off');
+%     exportgraphics(gca, file_name, 'Resolution', fig_resolution);
+    
+    % Scalogram + Waveplot. 
+    f = figure;
+    f1 = subplot(2,1,1);
+    plot(t, data);
+    ylim(f1, [-0.25 0.1]);
+    axis tight;
+    title("Signal and Scalogram");
+    xlabel("Time (s)");
+    ylabel("Amplitude");
+    subplot(2,1,2);
     surface(t, frq, abs(cfs));
+    axis tight;
     shading flat;
-    set(gca, 'visible', 'off');
-    set(colorbar, 'visible', 'off');
-    exportgraphics(gca, file_name, 'Resolution', fig_resolution);
+    xlabel("Time (s)")
+    ylabel("Frequency (Hz)")
+%     set(gca,"yscale","log")
+    exportgraphics(f, file_name, 'Resolution', fig_resolution);
 
     clear cfs frq;
 
