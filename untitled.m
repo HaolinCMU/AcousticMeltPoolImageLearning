@@ -5,22 +5,26 @@ raw_audio_folder_path = 'data/raw_audio_data';
 acoustic_data_folder_path = 'data/acoustic_data'; % Save generated wavelet spectrums. 
 
 audio_paths = dir(fullfile(raw_audio_folder_path, '*.wav'));
-audio_clip_length = 64; % In sample points. Length of 128 corresponds to ~(>)1ms audio and 30 image frames. 
-audio_sampling_stride = 32;
+audio_clip_length = 256; % In sample points. Length of 128 corresponds to ~(>)1ms audio and 30 image frames. 
+audio_sampling_stride = 64;
 fs = 96e3; % Sampling rate; 
 wavelet = 'amor'; % Default: 'amor' or 'bump'. 
-fig_resolution = 256; % Default: 512. 
 OMIT_DURATION = [0.069, 0.058, 0.061, 0.065, 0.061, 0.066, ...
                  0.065, 0.070, 0.064, 0.065, 0.062, ... 
                  0.063, 0.066, 0.063, 0.058, 0.063, 0.062, ...
                  0.068, 0.059, 0.058, 0.065, 0.063, 0.062, ...
                  0.064, 0.059, 0.059, 0.060, 0.068, 0.068]; % In s.
 
+fig_resolution = 256; % Default: 512. 
+is_log_scale = 0; % Default: 0. 
+is_multiview = 1; % Default: 0. 
+
 
 %%
 poolobj = parpool(8);
 parfor i = 1:length(audio_paths)
     acoustic_data_subfolder_path = sprintf('%s/%04d', acoustic_data_folder_path, i-1);
+
     if exist(acoustic_data_subfolder_path, 'dir') == 0
         mkdir(acoustic_data_subfolder_path);
     end
@@ -30,7 +34,8 @@ parfor i = 1:length(audio_paths)
     y_eff = y(round(OMIT_DURATION(i)*fs):end);
 
     partitionAndCWTtoFolder(y_eff, audio_clip_length, audio_sampling_stride, ...
-                            fs, wavelet, fig_resolution, acoustic_data_subfolder_path);
+                            fs, wavelet, fig_resolution, acoustic_data_subfolder_path, ...
+                            is_log_scale, is_multiview);
 
 end
 
@@ -39,7 +44,8 @@ delete(poolobj);
 
 %% Help functions.
 function partitionAndCWTtoFolder(data, window_length, stride, fs, wavelet, ...
-                                 fig_resolution, result_folder_path)
+                                 fig_resolution, result_folder_path, ...
+                                 is_log_scale, is_multiview)
     %{
     Partition the input data with specified window length, stride, and
     generate corresponding individual wavelet power spectrums using
@@ -48,6 +54,18 @@ function partitionAndCWTtoFolder(data, window_length, stride, fs, wavelet, ...
     Parameters:
     ----------
         data: Float vector. The target raw signal. 
+        window_length: Int. The length of the clip in number of DPs.
+        stride: Int. The length of stride (window_length-overlap) between
+                consecutive clips while segmenting the signal. In DPs. 
+        fs: Float. The sampling rate of the data. 
+        wavelet: String token. The type of the selected mother wavelet function.
+        fig_resolution: Int. The eventual resolution of the saved spectrum
+                        image.
+        result_folder_path: String. The path of the folder for saving the
+                            clip spectrums. 
+        is_log_scale: Int/Bool. 0: not using log scale. 1: using log scale.
+        is_multiview: Int/Bool. 0: plot CWT spectrum only. 1: plot both CWT
+                        sperctrum and temporal waveform. 
     %}
     
     signal_total_length = length(data);
@@ -57,7 +75,8 @@ function partitionAndCWTtoFolder(data, window_length, stride, fs, wavelet, ...
         start_ind = (i-1)*stride+1;
         clip_temp = data(start_ind:start_ind+window_length-1);
         CWT(clip_temp, wavelet, fs, fig_resolution, ...
-            sprintf('%s/%06d.png', result_folder_path, i-1));
+            sprintf('%s/%06d.png', result_folder_path, i-1), ...
+            is_log_scale, is_multiview);
 
         clear clip_temp;
     end
@@ -65,49 +84,61 @@ function partitionAndCWTtoFolder(data, window_length, stride, fs, wavelet, ...
 end
 
 
-function CWT(data, wavelet, fs, fig_resolution, file_name)
+function CWT(data, wavelet, fs, fig_resolution, file_name, is_log_scale, is_multiview)
     %{
     Create a single continuous wavelet transform power spectrum. 
 
     Parameters:
     ----------
         data: Float vector. The transformation target. 
-        wavelet: String token. The type of the selected mother wavelet function. f
+        wavelet: String token. The type of the selected mother wavelet function. 
         fs: Float. The samping rate of the target signal. 
         fig_resolution: Int. The eventual resolution of the saved spectrum
                         image. 
         file_name: String. The saving path of the output spectrum image. 
+        is_log_scale: Int/Bool. 0: not using log scale. 1: using log scale.
+        is_multiview: Int/Bool. 0: plot CWT spectrum only. 1: plot both CWT
+                        sperctrum and temporal waveform. 
     %}
 
     [cfs, frq] = cwt(data, wavelet, fs);
     t = 0:1/fs:(size(data,1)-1)/fs;
     
-%     % CWT scalogram only. 
-%     figure('visible','off');
-%     surface(t, frq, abs(cfs));
-%     shading flat;
-% %     set(gca,"yscale","log")
-%     set(gca, 'visible', 'off');
-%     set(colorbar, 'visible', 'off');
-%     exportgraphics(gca, file_name, 'Resolution', fig_resolution);
-    
-    % Scalogram + Waveplot. 
-    f = figure;
-    f1 = subplot(2,1,1);
-    plot(t, data);
-    ylim(f1, [-0.25 0.1]);
-    axis tight;
-    title("Signal and Scalogram");
-    xlabel("Time (s)");
-    ylabel("Amplitude");
-    subplot(2,1,2);
-    surface(t, frq, abs(cfs));
-    axis tight;
-    shading flat;
-    xlabel("Time (s)")
-    ylabel("Frequency (Hz)")
-%     set(gca,"yscale","log")
-    exportgraphics(f, file_name, 'Resolution', fig_resolution);
+    if ~is_multiview % CWT scalogram only. No axes, labels and colorbars. 
+        figure('visible','off');
+        surface(t, frq, abs(cfs));
+        axis tight;
+        shading flat;
+        if is_log_scale
+            set(gca,"yscale","log"); % Apply log scale on y-axis. 
+        end
+        set(gca, 'visible', 'off');
+        set(colorbar, 'visible', 'off');
+        exportgraphics(gca, file_name, 'Resolution', fig_resolution);
+
+    else % CWT spectrum + waveform plots. With axes, labels and colorbars. 
+        f = figure;
+
+        f1 = subplot(2,1,1);
+        plot(t, data);
+        axis tight;
+        ylim(f1, [-0.25 0.1]);
+        title("Signal and Scalogram");
+        xlabel("Time (s)");
+        ylabel("Amplitude");
+
+        f2 = subplot(2,1,2);
+        surface(t, frq, abs(cfs));
+        axis tight;
+        shading flat;
+        xlabel("Time (s)");
+        ylabel("Frequency (Hz)");
+        if is_log_scale
+            set(f2,"yscale","log"); % Apply log scale on y-axis. 
+        end
+
+        exportgraphics(f, file_name, 'Resolution', fig_resolution);
+    end
 
     clear cfs frq;
 
