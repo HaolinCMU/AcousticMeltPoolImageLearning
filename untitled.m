@@ -5,19 +5,19 @@ raw_audio_folder_path = 'data/raw_audio_data';
 acoustic_data_folder_path = 'data/acoustic_data'; % Save generated wavelet spectrums. 
 
 audio_paths = dir(fullfile(raw_audio_folder_path, '*.wav'));
-audio_clip_length = 256; % In sample points. Length of 128 corresponds to ~(>)1ms audio and 30 image frames. 
+audio_clip_length = 128; % In sample points. Length of 128 corresponds to ~(>)1ms audio and 30 image frames. 
 audio_sampling_stride = 64;
 fs = 96e3; % Sampling rate; 
 wavelet = 'amor'; % Default: 'amor' or 'bump'. 
-OMIT_DURATION = [0.069, 0.058, 0.061, 0.065, 0.061, 0.066, ...
-                 0.065, 0.070, 0.064, 0.065, 0.062, ... 
-                 0.063, 0.066, 0.063, 0.058, 0.063, 0.062, ...
-                 0.068, 0.059, 0.058, 0.065, 0.063, 0.062, ...
-                 0.064, 0.059, 0.059, 0.060, 0.068, 0.068]; % In s.
+OMIT_DURATION = [0.069+0.0030, 0.058+0.0039, 0.061+0.0028, 0.065+0.00315, 0.061+0.00477, 0.066+0.0036, ...
+                 0.065+0.0036, 0.070+0.00312, 0.064+0.00405, 0.065+0.0036, 0.062+0.00378, ... 
+                 0.063+0.00415, 0.066+0.0044, 0.063+0.00435, 0.058+0.00416, 0.063+0.00427, 0.062+0.00368, ...
+                 0.068+0.0037, 0.059+0.00378, 0.058+0.00425, 0.065+0.0046, 0.063+0.00388, 0.062+0.00405, ...
+                 0.064+0.00405, 0.059+0.0037, 0.059+0.00413, 0.060+0.00448, 0.068+0.00455, 0.068+0.00396]; % In s.
 
 fig_resolution = 256; % Default: 512. 
-is_log_scale = 0; % Default: 0. 
-is_multiview = 1; % Default: 0. 
+is_log_scale = 1; % Default: 0. 
+is_multiview = 0; % Default: 0. 
 
 
 %%
