@@ -8,6 +8,8 @@ Created on Fri Jan 28 01:19:34 2022
 import os
 import numpy as np
 
+from BASIC import *
+
 INTENSITY_THRESHOLD = (0.6, 1.0) # Default: (0.8, 1.0). The intensity threshold of melt pool & bright spatters. 
 SIDEBAR_COLUMNS = [(0,32), (479,511)] # The column range of side bars. Default: [(0, 32), (479, 511)]. 
 SIDEBAR_THRESHOLD = 0.05
@@ -25,7 +27,7 @@ PC_NUM_FRAME = 2
 PCA_MODE_FRAME = 'transpose'
 IMG_STRAIGHTEN_KEYWORD = 'plume' # Default: total. Can be one of the following: 'original', 'meltpool', 'total', 'spatters', 'plume' or 'other'. 
 FRAME_ALIGN_MODE = 'principal' # 'principal' or 'secondary' or 'other'. 
-FRAME_REALIGN_AXIS_VECT = np.array([0.,1.])
+FRAME_REALIGN_AXIS_VECT = np.array([0., 1.])
 
 IMAGE_EXTENSION = "png"
 HU_MOMENTS_FEATURE_IND_LIST = [0,1,2,3,4,5,6] # Must be sorted. 
