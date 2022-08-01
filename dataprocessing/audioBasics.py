@@ -21,7 +21,7 @@ import scipy
 
 from PARAM import *
 
-      
+
 class STFTSpectrum(object):
     """
     """
@@ -69,20 +69,19 @@ class STFTSpectrum(object):
         self._spectrogram = librosa.amplitude_to_db(self._coef, ref=np.max)
 
     
-    def plot(self):
+    def plot(self, visualize=True):
         """
         """
 
         fig, ax = plt.figure()
         img = librosa.display.specshow(self._spectrogram, y_axis=self.y_axis, sr=self.sampling_rate, 
                                        hop_length=self.hop_length, n_fft=self.n_fft, x_axis='time')
-        fig.colorbar(img, ax=ax)
+        # fig.colorbar(img, ax=ax)
         fig.canvas.draw()
-
         self._spectrogram = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8).\
-                                        reshape(fig.canvas.get_width_height()[::-1] + (3,))
-
-        # plt.show()
+                                        reshape(fig.canvas.get_width_height()[::-1] + (3,)) # Save the plot from buffer as a numpy array. 
+        
+        if visualize: plt.show()
 
 
 class WaveletSpectrum(object):
@@ -135,17 +134,21 @@ class WaveletSpectrum(object):
         self.coef, self.freqs = pywt.cwt(self.acoustic_data, self.scales, self.wavelet)
 
     
-    def plot(self):
+    def plot(self, visualize=True):
         """
         """
 
         fig, ax = plt.figure()
-        
-        
-
-        # self._spectrum = image matrix. 
-
-        pass
+        extent = [0, ACOUSTIC.AUDIO_CLIP_LENGTH_DP, len(ACOUSTIC.SCALE)]
+        img = ax.imshow(abs(self.coef), extent=extent, interpolation='bilinear', cmap='viridis', aspect='equal', 
+                        vmax=abs(self.coef).max(), vmin=-abs(self.coef).max())
+        ax.invert_yaxis() # Invert axis to make it a spectrogram. 
+        ax.axis('off') # Turn off axis. 
+        fig.canvas.draw()
+        self._spectrum = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8).\
+                                       reshape(fig.canvas.get_width_height()[::-1] + (3,)) # Save the plot from buffer as a numpy array. 
+                                       
+        if visualize: plt.show()
 
 
 class Audio(object):
