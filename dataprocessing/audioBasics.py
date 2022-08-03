@@ -91,7 +91,7 @@ class WaveletSpectrum(object):
     """
 
     def __init__(self, data, wavelet, scales, is_log_scale=ACOUSTIC.IS_LOG_SCALE, 
-                 is_save=False, is_visualize=True, spectrum_fig_path=None):
+                 is_save=False, is_visualize=False, spectrum_fig_path=None):
         """
         """
 
@@ -146,14 +146,12 @@ class WaveletSpectrum(object):
         """
         """
 
-        fig = plt.figure(figsize=(20,20))
-        ax = fig.add_subplot(111)
+        fig = plt.figure(figsize=(10,10))
+        ax = fig.add_axes([0.,0.,1.,1.])
         extent = [-1, 1, 1, len(ACOUSTIC.SCALE)+1]
-        img = ax.imshow(abs(self._coef), extent=extent, interpolation='bilinear', cmap='gray', aspect='auto',
+        _ = ax.imshow(abs(self._coef), extent=extent, interpolation='bilinear', cmap='gray', aspect='auto',
                         vmax=abs(self._coef).max(), vmin=-abs(self._coef).max())
-        # ax.invert_yaxis() 
         if self.is_log_scale: ax.set_yscale('log')
-        # ax.axis('equal')
         ax.axis('off') # Turn off axis. 
         fig.canvas.draw()
         self._spectrum = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8).\
@@ -161,7 +159,7 @@ class WaveletSpectrum(object):
                                        
         if visualize: plt.show()
         if save and self.spectrum_fig_path is not None: 
-            plt.savefig(self.spectrum_fig_path)
+            plt.savefig(self.spectrum_fig_path, bbox_inches='tight', pad_inches=0)
         
 
 class Audio(object):
@@ -222,3 +220,9 @@ class Audio(object):
         if fig_path is not None: plt.savefig(fig_path)
         plt.show()
 
+
+if __name__ == "__main__":
+    """
+    """
+
+    pass

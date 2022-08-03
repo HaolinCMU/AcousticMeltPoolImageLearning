@@ -42,10 +42,14 @@ DEBUG = False
 
 # JOB PARAMS. 
 FRAME_PROCESS_DATA_GENERATION_TOKEN = False
+FRAME_CODER_MODEL_TYPE = 'VAE' # Options: 'VAE', 'AE'
 VAE_TRAINING_TOKEN = False
-ACOUSTIC_SPECTROGRAM_TYPE = 'wavelet' # 'wavelet', 'stft', or 'matlab'. 
-IMAGE_FEATURE_TYPE = 'Hu'
-FRAME_CODER_MODEL_TYPE = 'VAE' # Options: 'VAE', 'AE', 
+# IMAGE_FEATURE_TYPE = 'Hu'
+
+ACOUSTIC_DATA_PROCESSING_TOKEN = True
+# ACOUSTIC_SPECTROGRAM_TYPE = 'wavelet' # 'wavelet', 'stft', or 'matlab'. 
+ACOUSTIC_VISUAL_MODEL_TYPE = 'conv_2d'
+ACOUSTIC_VISUAL_TRAINING_TOKEN = True
 
 
 if __name__ == "__main__":

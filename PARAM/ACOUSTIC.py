@@ -15,6 +15,7 @@ import torch.utils
 
 # Define acoustic data partition & sampling strategies. 
 AUDIO_FILE_EXTENSION = "wav" # Can be "wav" or "lvm". 
+CLIP_FILE_EXTENSION = "npy"
 AUDIO_SAMPLING_RATE = 96e3 # Default: 96e3. Unit: Hz. Change according to the sensor's specs. 
 AUDIO_CLIP_LENGTH_DP = 128 # Default: 128. 
 AUDIO_CLIP_STRIDE_DP = 64 # Default: 64. 
@@ -31,14 +32,14 @@ N_FFT = 128
 HOP_LENGTH = 64
 
 # Generate wavelet spectrogram (scalogram). 
-WAVELET = 'morl' # Default: Morlet. 
-SCALE = np.arange(2, 10) # 1D Array of Int. The scale of the wavelet. Array of powers of 2. 
-# FIG_RESOLUTION = 256 # Default: 256. Intend to generate an image with size 256x256. 
+WAVELET = 'morl' # Default: Morlet ('morl'). 
+SCALE = np.arange(2, 16, 0.5) # 1D Array of Int. The scale of the wavelet. 
+SPECTRUM_DPI = 1200 # Default: 256. Intend to generate an image with size 256x256. 
 
 # Spectrogram/Scalogram y-axis scale. 
 IS_LOG_SCALE = False
 IS_SAVE = True
-IS_VISUALIZE = False
+# IS_VISUALIZE = False
 SPECTRUM_FIG_FOLDER = "data/acoustic_data"
 SPECTRUM_FIG_EXTENSION = "png"
 
