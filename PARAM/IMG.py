@@ -5,10 +5,10 @@ Created on Fri Jan 28 01:19:34 2022
 @author: hlinl
 """
 
+
 import os
 import numpy as np
 
-from BASIC import *
 
 INTENSITY_THRESHOLD = (0.6, 1.0) # Default: (0.8, 1.0). The intensity threshold of melt pool & bright spatters. 
 SIDEBAR_COLUMNS = [(0,32), (479,511)] # The column range of side bars. Default: [(0, 32), (479, 511)]. 

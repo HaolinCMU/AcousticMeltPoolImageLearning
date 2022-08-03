@@ -41,11 +41,11 @@ DEBUG = False
 
 
 # JOB PARAMS. 
-FRAME_PROCESS_DATA_GENERATION_TOKEN = True
-TRAINING_TOKEN = False
-ACOUSTIC_SPECTROGRAM_TYPE = 'wavelet'
+FRAME_PROCESS_DATA_GENERATION_TOKEN = False
+VAE_TRAINING_TOKEN = False
+ACOUSTIC_SPECTROGRAM_TYPE = 'wavelet' # 'wavelet', 'stft', or 'matlab'. 
 IMAGE_FEATURE_TYPE = 'Hu'
-ML_MODEL_TYPE = 'VAE' # Options: 'VAE', 'AE', 
+FRAME_CODER_MODEL_TYPE = 'VAE' # Options: 'VAE', 'AE', 
 
 
 if __name__ == "__main__":
@@ -55,6 +55,8 @@ if __name__ == "__main__":
     # Dataset & Data generation. 
     parser.add_argument("--data_dir_path", default=BASIC.DATA_DIRECTORY, type=str, 
                         help="The directory of all raw data, including audio and image. ")
+    
+    # Melting visual image & frame variables & param. 
     parser.add_argument("--img_data_subdir", default=BASIC.IMAGE_DATA_SUBDIR, type=str, 
                         help="The folder name of raw image data, including subfolders of different layers. ")
     parser.add_argument("--img_processed_data_subdir", default=BASIC.IMAGE_PROCESSED_DATA_SUBDIR, type=str, 
@@ -69,10 +71,29 @@ if __name__ == "__main__":
                         help="The keyword indicating the moving axis of the melt pool image frame. ")
     parser.add_argument("--frame_realign_axis_vect", default=IMG.FRAME_REALIGN_AXIS_VECT, type=str, 
                         help="The keyword indicating the targeted axis of the melt pool image frame. ")
-    parser.add_argument("--is_binary", default=IMG.IS_BINARY, type=bool, 
+    parser.add_argument("--is_binary_frame", default=IMG.IS_BINARY, type=bool, 
                         help="Indicate whether the processed images require binarization. ")
     
-    # Machine learning - VAE. 
+    # Acoustic data variables & param. 
+    parser.add_argument("--acoustic_data_subdir", default=BASIC.AUDIO_DATA_SUBDIR, type=str,
+                        help="The folder name of raw acoustic data, including subfolders of different layers. ")
+    parser.add_argument("--acoustic_processed_data_subdir", default=BASIC.ACOUSTIC_PROCESSED_DATA_SUBDIR, type=str, 
+                        help="The folder name of processed acoustic data, including subfolders of different layers. ")
+    parser.add_argument("--acoustic_extension", default=IMG.ACOUSTIC_EXTENSION, type=str, 
+                        help="The extension (file format) of raw acoustic files. ")
+    
+    parser.add_argument("--image_size", default=IMG.IMAGE_SIZE, type=list, 
+                        help="The intended size ([h, w]) of the processed image. ")
+    parser.add_argument("--img_straighten_keyword", default=IMG.IMG_STRAIGHTEN_KEYWORD, type=str, 
+                        help="The keyword of image straighten mode for the class `Frame`. ")
+    parser.add_argument("--frame_align_mode", default=IMG.FRAME_ALIGN_MODE, type=str, 
+                        help="The keyword indicating the moving axis of the melt pool image frame. ")
+    parser.add_argument("--frame_realign_axis_vect", default=IMG.FRAME_REALIGN_AXIS_VECT, type=str, 
+                        help="The keyword indicating the targeted axis of the melt pool image frame. ")
+    parser.add_argument("--is_binary_frame", default=IMG.IS_BINARY, type=bool, 
+                        help="Indicate whether the processed images require binarization. ")
+    
+    # Frame coder model param. (VAE & AE) 
     parser.add_argument("--vae_input_img_dir", default=ML_VAE.INPUT_IMAGE_DATA_DIR, type=str, 
                         help="The directory of all input images for VAE. ")
     parser.add_argument("--vae_output_img_dir", default=ML_VAE.OUTPUT_IMAGE_DATA_DIR, type=str, 
@@ -85,12 +106,14 @@ if __name__ == "__main__":
                         help="The epoch numbers of training for VAE. ")
     parser.add_argument("--vae_loss_beta", default=ML_VAE.LOSS_BETA, type=float, 
                         help="Hyperparameter for controlling weights of the KL-divergence loss function term. ")
+    
+    # Acoustic data processing 
 
     args = parser.parse_args()
 
     ####################################################################################################################
 
-    # Data processing
+    # Data processing - Image and acoustic. 
     if FRAME_PROCESS_DATA_GENERATION_TOKEN:
         # Image data processing. 
         img_data_subdir_path = os.path.join(args.data_dir_path, args.img_data_subdir) # Directory of raw melt pool images. 
@@ -114,7 +137,7 @@ if __name__ == "__main__":
                                                                          args.frame_realign_axis_vect) # Get straightened meltpool image.
 
                 img_processed_temp = copy.deepcopy(meltpool_straightened_image_temp)
-                if not args.is_binary: img_processed_temp = PIL.Image.fromarray(np.uint8(img_processed_temp*255)) # Not binarizing the image, keeping the original intensity values. 
+                if not args.is_binary_frame: img_processed_temp = PIL.Image.fromarray(np.uint8(img_processed_temp*255)) # Not binarizing the image, keeping the original intensity values. 
                 else: img_processed_temp = PIL.Image.fromarray(np.uint8(frame_temp.binarize(img_processed_temp)*255)) # Binarize image and convert it to `uint8` data type. 
                 img_processed_temp = transforms.Resize(args.image_size)(img_processed_temp)
 
@@ -122,11 +145,13 @@ if __name__ == "__main__":
                                                             "{}_{}.{}".format(img_subfolder, img_ind, args.img_extension))
                 img_processed_temp.save(img_processed_file_path_temp)
     
+    
+    
     ####################################################################################################################
 
-    # Training. 
-    if TRAINING_TOKEN:
-        if ML_MODEL_TYPE == 'VAE':
+    # Autoencoder training. 
+    if VAE_TRAINING_TOKEN:
+        if FRAME_CODER_MODEL_TYPE == 'VAE':
             vae_model = Model_VAE(input_data_dir=args.vae_input_img_dir, output_data_dir=args.vae_output_img_dir, 
                                 batch_size=args.vae_batch_size, learning_rate=args.vae_lr, 
                                 num_epochs=args.vae_num_epochs, loss_beta=args.vae_loss_beta)
@@ -163,7 +188,7 @@ if __name__ == "__main__":
             np.save("logvar_list_train.npy", logvar_list_train)
             np.save("latent_list_train.npy", latent_list_train)
         
-        elif ML_MODEL_TYPE == 'AE':
+        elif FRAME_CODER_MODEL_TYPE == 'AE':
             ae_model = Model_AE(input_data_dir=args.vae_input_img_dir, output_data_dir=args.vae_output_img_dir, 
                                 batch_size=args.vae_batch_size, learning_rate=args.vae_lr, num_epochs=args.vae_num_epochs)
             
@@ -197,5 +222,5 @@ if __name__ == "__main__":
 
     ####################################################################################################################
 
-    # Result plot & analysis & parametric study
+    # Mainstream learning. 
 

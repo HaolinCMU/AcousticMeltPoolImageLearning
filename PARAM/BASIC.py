@@ -20,3 +20,7 @@ ACOUSTIC_PROCESSED_DATA_SUBDIR = "acoustic_data"
 
 IMAGE_EXTENSION = "png"
 HU_MOMENTS_FEATURE_IND_LIST = [0,1,2,3,4,5,6] # Must be sorted. 
+
+ACOUSTIC_EXTENSION = "wav" # Acoustic data is saved into 'npy' format. 'wav', 'lvm' or 'npy'. 
+
+

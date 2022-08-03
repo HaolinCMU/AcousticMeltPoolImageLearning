@@ -30,6 +30,6 @@ if __name__ == "__main__":
 
     pass
 
-librosa.load(wav_file_path, sr=sampling_rate, offset=omit_duration)
-librosa.load('C:/Users/hlinl/Desktop/acoustic_image_learning/data/raw_audio_data/Layer117_Section_23_S0001.wav')
+# librosa.load(wav_file_path, sr=sampling_rate, offset=omit_duration)
+# librosa.load('C:/Users/hlinl/Desktop/acoustic_image_learning/data/raw_audio_data/Layer117_Section_23_S0001.wav')
 

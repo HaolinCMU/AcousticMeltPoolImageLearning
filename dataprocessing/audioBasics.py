@@ -66,20 +66,22 @@ class STFTSpectrum(object):
         """
 
         self._coef = np.abs(librosa.stft(self.acoustic_data, n_fft=self.n_fft, hop_length=self.hop_length))
-        self._spectrogram = librosa.amplitude_to_db(self._coef, ref=np.max)
+        # self._spectrogram = librosa.amplitude_to_db(self._coef, ref=np.max)
+        self.plot(visualize=False)
 
     
     def plot(self, visualize=True):
         """
         """
 
-        fig, ax = plt.figure()
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
         img = librosa.display.specshow(self._spectrogram, y_axis=self.y_axis, sr=self.sampling_rate, 
                                        hop_length=self.hop_length, n_fft=self.n_fft, x_axis='time')
         # fig.colorbar(img, ax=ax)
         fig.canvas.draw()
         self._spectrogram = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8).\
-                                        reshape(fig.canvas.get_width_height()[::-1] + (3,)) # Save the plot from buffer as a numpy array. 
+                                          reshape(fig.canvas.get_width_height()[::-1] + (3,)) # Save the plot from buffer as a numpy array. 
         
         if visualize: plt.show()
 
@@ -88,19 +90,24 @@ class WaveletSpectrum(object):
     """
     """
 
-    def __init__(self, data, wavelet, scales, map_resolution, is_log_scale=True):
+    def __init__(self, data, wavelet, scales, is_log_scale=ACOUSTIC.IS_LOG_SCALE, 
+                 is_save=False, is_visualize=True, spectrum_fig_path=None):
         """
         """
 
         self.acoustic_data = data
         self.wavelet = wavelet
         self.scales = scales
-        self.map_resolution = map_resolution
         self.is_log_scale = is_log_scale
+        self.is_save = is_save
+        self.is_visualize = is_visualize
+        self.spectrum_fig_path = spectrum_fig_path
 
-        self.coef = None
-        self.freqs = None
+        self._coef = None
+        self._freqs = None
         self._spectrum = None
+        
+        self.transform()
     
 
     @property
@@ -108,7 +115,7 @@ class WaveletSpectrum(object):
         """
         """
 
-        return self.coef
+        return self._coef
 
     
     @property
@@ -116,7 +123,7 @@ class WaveletSpectrum(object):
         """
         """
 
-        return self.freqs
+        return self._freqs
 
     
     @property
@@ -131,25 +138,31 @@ class WaveletSpectrum(object):
         """
         """
 
-        self.coef, self.freqs = pywt.cwt(self.acoustic_data, self.scales, self.wavelet)
+        self._coef, self._freqs = pywt.cwt(self.acoustic_data, self.scales, self.wavelet)
+        self.plot(self.is_save, self.is_visualize)
 
     
-    def plot(self, visualize=True):
+    def plot(self, save=False, visualize=True):
         """
         """
 
-        fig, ax = plt.figure()
-        extent = [0, ACOUSTIC.AUDIO_CLIP_LENGTH_DP, len(ACOUSTIC.SCALE)]
-        img = ax.imshow(abs(self.coef), extent=extent, interpolation='bilinear', cmap='viridis', aspect='equal', 
-                        vmax=abs(self.coef).max(), vmin=-abs(self.coef).max())
-        ax.invert_yaxis() # Invert axis to make it a spectrogram. 
+        fig = plt.figure(figsize=(20,20))
+        ax = fig.add_subplot(111)
+        extent = [-1, 1, 1, len(ACOUSTIC.SCALE)+1]
+        img = ax.imshow(abs(self._coef), extent=extent, interpolation='bilinear', cmap='gray', aspect='auto',
+                        vmax=abs(self._coef).max(), vmin=-abs(self._coef).max())
+        # ax.invert_yaxis() 
+        if self.is_log_scale: ax.set_yscale('log')
+        # ax.axis('equal')
         ax.axis('off') # Turn off axis. 
         fig.canvas.draw()
         self._spectrum = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8).\
                                        reshape(fig.canvas.get_width_height()[::-1] + (3,)) # Save the plot from buffer as a numpy array. 
                                        
         if visualize: plt.show()
-
+        if save and self.spectrum_fig_path is not None: 
+            plt.savefig(self.spectrum_fig_path)
+        
 
 class Audio(object):
     """
@@ -164,7 +177,7 @@ class Audio(object):
         self.omit_duration = omit # Unit: In s.
 
         self.data = data if data is not None and self.file_path is None else \
-                    self._read_data_from_path(self.file_path)
+                    self._read_data_from_path()
         self.audio_len = len(self.data)
     
 
