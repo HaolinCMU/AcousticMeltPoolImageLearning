@@ -161,6 +161,10 @@ class WaveletSpectrum(object):
         if save and self.spectrum_fig_path is not None: 
             plt.savefig(self.spectrum_fig_path, bbox_inches='tight', pad_inches=0)
         
+        plt.close()
+        plt.cla()
+        plt.clf()
+        
 
 class Audio(object):
     """

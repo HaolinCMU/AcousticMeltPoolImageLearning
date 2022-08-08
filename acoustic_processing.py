@@ -16,11 +16,47 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mig
 
+from numpy.lib.stride_tricks import sliding_window_view
 from pathlib import Path
 
 from PARAM import *
 from dataprocessing import *
 from files import *
+
+
+class Clips(audioBasics.Audio):
+    """
+    """
+
+    def __init__(self, file_path=None, data=None, sr=ACOUSTIC.AUDIO_SAMPLING_RATE, omit=0.,
+                 clip_length=ACOUSTIC.AUDIO_CLIP_LENGTH_DP, clip_stride=ACOUSTIC.AUDIO_CLIP_STRIDE_DP,
+                 is_save_offline=ACOUSTIC.IS_SAVE, clips_subdir=BASIC.ACOUSTIC_CLIPS_FOLDER_PATH,
+                 spectrograms_subdir=BASIC.ACOUSTIC_SPECS_FOLDER_PATH):
+        """
+        """
+
+        super(Clips, self).__init__(file_path, data, sr, omit)
+        self.clip_length = clip_length
+        self.clip_stride = clip_stride
+        self.is_save_offline = is_save_offline
+        self.clips_subdir = clips_subdir
+        self.spectrograms_subdir = spectrograms_subdir
+
+        self._audio_file_name = None
+        self._index_list = None
+        self._clips_mat = None
+        # self._spectrogram_list = None
+    
+
+    def _get_audio_name(self):
+        """
+        """
+
+        self._audio_file_name = Path(self.file_path).stem
+
+
+
+
 
 
 class Clips(audioBasics.Audio):
@@ -79,7 +115,7 @@ class Clips(audioBasics.Audio):
         """
 
         self._index_list, self._clip_list = [], []
-        clip_num = (self.audio_len - self.clip_stride) // self.clip_stride + 1
+        clip_num = (self.audio_len - self.clip_length) // self.clip_stride + 1
 
         for i in range(clip_num):
             start = i*self.clip_stride
@@ -90,6 +126,8 @@ class Clips(audioBasics.Audio):
             self._index_list.append(i+1)
 
         if self.is_save: self._save_clips()
+
+        clips_mat = sliding_window_view(self.data, self.clip_length)[::self.clip_stride,:]
 
     
     def spectral_transform(self, transform_keyword=ACOUSTIC.SPECTRAL_TRANSFORM_KEYWORD):
@@ -103,9 +141,9 @@ class Clips(audioBasics.Audio):
             for clip in self._clip_list:
                 if transform_keyword == 'stft':
                     stft_transformer = audioBasics.STFTSpectrum(data=clip, sr=self.sampling_rate, 
-                                                                n_fft=ACOUSTIC.N_FFT, jop_length=ACOUSTIC.HOP_LENGTH, 
+                                                                n_fft=ACOUSTIC.N_FFT, hop_length=ACOUSTIC.HOP_LENGTH, 
                                                                 is_log_scale=ACOUSTIC.IS_LOG_SCALE)
-                    self._spectrogram_list.append(copy.deepcopy(stft_transformer.spectrogram)) # List of 2D numpy array of STFT spectrogram images. 
+                    self._spectrogram_list.append(copy.deepcopy(stft_transformer.spectrum)) # List of 2D numpy array of STFT spectrogram images. 
 
                 elif transform_keyword == 'cwt':
                     wavelet_transformer = audioBasics.WaveletSpectrum(data=clip, wavelet=ACOUSTIC.WAVELET, 
@@ -130,7 +168,7 @@ class Clips(audioBasics.Audio):
             if not os.path.isdir(save_folder_path): os.mkdir(save_folder_path)
 
             for ind, clip in enumerate(self._clip_list):
-                save_clip_path = os.path.join(save_folder_path, "{}.{}".format(str(self._index_list[ind]).zfill(4), 
+                save_clip_path = os.path.join(save_folder_path, "{}.{}".format(str(self._index_list[ind]).zfill(5), 
                                                                                ACOUSTIC.CLIP_FILE_EXTENSION))
                 np.save(save_clip_path, copy.deepcopy(clip.reshape(-1)))
 
@@ -149,7 +187,7 @@ class Clips(audioBasics.Audio):
             if not os.path.isdir(save_folder_path): os.mkdir(save_folder_path)
 
             for ind, spectrogram in enumerate(self._spectrogram_list):
-                save_spec_path = os.path.join(save_folder_path, "{}.{}".format(str(self._index_list[ind]).zfill(4), 
+                save_spec_path = os.path.join(save_folder_path, "{}.{}".format(str(self._index_list[ind]).zfill(5), 
                                                                                ACOUSTIC.SPECTRUM_FIG_EXTENSION))
                 plt.imsave(save_spec_path, spectrogram, dpi=ACOUSTIC.SPECTRUM_DPI)
 
