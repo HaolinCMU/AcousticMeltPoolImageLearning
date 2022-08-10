@@ -85,6 +85,10 @@ class STFTSpectrum(object):
         
         if visualize: plt.show()
 
+        plt.close()
+        plt.cla()
+        plt.clf()
+
 
 class WaveletSpectrum(object):
     """
@@ -148,7 +152,7 @@ class WaveletSpectrum(object):
 
         fig = plt.figure(figsize=(10,10))
         ax = fig.add_axes([0.,0.,1.,1.])
-        extent = [-1, 1, 1, len(ACOUSTIC.SCALE)+1]
+        extent = [-1, 1, 1, len(self.scales)+1]
         _ = ax.imshow(abs(self._coef), extent=extent, interpolation='bilinear', cmap='gray', aspect='auto',
                         vmax=abs(self._coef).max(), vmin=-abs(self._coef).max())
         if self.is_log_scale: ax.set_yscale('log')

@@ -33,7 +33,7 @@ HOP_LENGTH = 64
 
 # Generate wavelet spectrogram (scalogram). 
 WAVELET = 'morl' # Default: Morlet ('morl'). 
-SCALE = np.arange(2, 16, 0.5) # 1D Array of Int. The scale of the wavelet. 
+SCALES = np.arange(2, 16, 0.5) # 1D Array of Int. The scale of the wavelet. 
 SPECTRUM_DPI = 1200 # Default: 256. Intend to generate an image with size 256x256. 
 
 # Spectrogram/Scalogram y-axis scale. 
