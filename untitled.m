@@ -5,17 +5,18 @@ raw_audio_folder_path = 'data/raw_audio_data';
 acoustic_data_folder_path = 'data/acoustic_data'; % Save generated wavelet spectrums. 
 
 audio_paths = dir(fullfile(raw_audio_folder_path, '*.wav'));
-audio_clip_length = 128; % In sample points. Length of 128 corresponds to ~(>)1ms audio and 30 image frames. 
+audio_clip_length = 256; % In sample points. Length of 128 corresponds to ~(>)1ms audio and 30 image frames. 
 audio_sampling_stride = 64;
 fs = 96e3; % Sampling rate; 
-wavelet = 'amor'; % Default: 'am    or' or 'bump'. 
+wavelet = 'amor'; % Default: 'amor' or 'bump'. 
 OMIT_DURATION = [0.0720, 0.0619, 0.0638, 0.0682, 0.0658, 0.0696, ...
                  0.0686, 0.0731, 0.0680, 0.0686, 0.0658, ...
                  0.0672, 0.0704, 0.0673, 0.0622, 0.0673, 0.0657, ...
                  0.0717, 0.0628, 0.0622, 0.0696, 0.0669, 0.0660, ...
                  0.0680, 0.0627, 0.0631, 0.0645, 0.0726, 0.0720]; % In s.
 
-fig_resolution = 256; % Default: 512. 
+fig_resolution = 256; % Default: 512.
+is_filter_bank = 0; % Default: 0. 
 is_log_scale = 1; % Default: 0. 
 is_multiview = 0; % Default: 0. 
 
@@ -35,7 +36,7 @@ parfor i = 1:length(audio_paths)
 
     partitionAndCWTtoFolder(y_eff, audio_clip_length, audio_sampling_stride, ...
                             fs, wavelet, fig_resolution, acoustic_data_subfolder_path, ...
-                            is_log_scale, is_multiview);
+                            is_filter_bank, is_log_scale, is_multiview);
 
 end
 
@@ -45,7 +46,7 @@ delete(poolobj);
 %% Help functions.
 function partitionAndCWTtoFolder(data, window_length, stride, fs, wavelet, ...
                                  fig_resolution, result_folder_path, ...
-                                 is_log_scale, is_multiview)
+                                 is_filter_bank, is_log_scale, is_multiview)
     %{
     Partition the input data with specified window length, stride, and
     generate corresponding individual wavelet power spectrums using
@@ -76,7 +77,7 @@ function partitionAndCWTtoFolder(data, window_length, stride, fs, wavelet, ...
         clip_temp = data(start_ind:start_ind+window_length-1);
         CWT(clip_temp, wavelet, fs, fig_resolution, ...
             sprintf('%s/%06d.png', result_folder_path, i-1), ...
-            is_log_scale, is_multiview);
+            is_filter_bank, is_log_scale, is_multiview);
 
         clear clip_temp;
     end
@@ -84,7 +85,8 @@ function partitionAndCWTtoFolder(data, window_length, stride, fs, wavelet, ...
 end
 
 
-function CWT(data, wavelet, fs, fig_resolution, file_name, is_log_scale, is_multiview)
+function CWT(data, wavelet, fs, fig_resolution, file_name, ...
+             is_filter_bank, is_log_scale, is_multiview)
     %{
     Create a single continuous wavelet transform power spectrum. 
     Parameters:
@@ -99,9 +101,19 @@ function CWT(data, wavelet, fs, fig_resolution, file_name, is_log_scale, is_mult
         is_multiview: Int/Bool. 0: plot CWT spectrum only. 1: plot both CWT
                         sperctrum and temporal waveform. 
     %}
+    
 
-    [cfs, frq] = cwt(data, wavelet, fs);
-    t = 0:1/fs:(size(data,1)-1)/fs;
+    data_len = size(data,1);
+
+    if is_filter_bank 
+        fb = cwtfilterbank(SignalLength=data_len, wavelet=wavelet, ...
+                           SamplingFrequency=fs);
+        [cfs, frq] = cwt(data, FilterBank=fb);
+    else
+        [cfs, frq] = cwt(data, wavelet, fs);
+    end
+
+    t = 0:1/fs:(data_len-1)/fs;
     
     if ~is_multiview % CWT scalogram only. No axes, labels and colorbars. 
         figure('visible','off');

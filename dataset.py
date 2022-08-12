@@ -22,10 +22,235 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mig
 import PIL
 
+from collections import defaultdict
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import Compose, Resize, ToTensor
 
 from PARAM import *
+
+
+class ACVD_SubDataset(Dataset):
+    """
+    """
+    
+    def __init__(self, dataset_dict=None, dtype=torch.float32, 
+                 input_img_transform=Compose([Resize(ACOUSTIC.SPECTRUM_IMG_SIZE),ToTensor()])):
+        """
+        """
+        
+        self.dataset = dataset_dict
+        self.dtype = dtype
+        self.input_img_transform = input_img_transform
+        
+        self._dataset_size = len(self.dataset) if self.dataset is not None else 0
+    
+    
+    def __len__(self):
+        """
+        """
+        
+        return self._dataset_size
+
+    
+    def __getitem__(self, ind):
+        """
+        """
+        
+        if self.dataset is None: raise ValueError("Dataset not defined. ")
+        else:
+            input_img = PIL.Image.fromarray(np.uint8(mig.imread(self.dataset[ind][0])*255)) # Read spectrum from a path.
+            output_label = torch.from_numpy(np.load(self.dataset[ind][1])).to(self.dtype) # Read label vector from a path.
+            
+            if self.input_img_transform:
+                input_img = copy.deepcopy(self.input_img_transform(input_img).to(self.dtype)) # Transformed tensor of prescribed data type. [c, h, w]. 
+            
+            sample = {'input': input_img, 'output': output_label}
+            return sample
+        
+
+class AcousticSpectrumVisualDataset(Dataset):
+    """
+    """
+
+    def __init__(self, spectrum_data_dir, visual_data_dir, dtype=torch.float32, 
+                 train_ratio=0.8, valid_ratio=0.05, test_ratio=0.15, test_layer_folder_namelist=None, 
+                 spectrum_extension=ACOUSTIC.SPECTRUM_FIG_EXTENSION, visual_data_extension="npy", 
+                 input_image_transform=Compose([Resize(ACOUSTIC.SPECTRUM_IMG_SIZE),ToTensor()])):
+        """
+        `spectrum_data_dir` and `visual_data_dir` must have the same inner data structure. 
+        """
+        
+        self.spectrum_dir = spectrum_data_dir
+        self.visual_data_dir = visual_data_dir
+        
+        self.train_ratio = train_ratio
+        self.valid_ratio = valid_ratio
+        self.test_ratio = test_ratio
+        self.test_layer_folder_namelist = test_layer_folder_namelist
+        
+        self.dtype = dtype
+        self.spectrum_extension = spectrum_extension
+        self.visual_data_extension = visual_data_extension
+        self.input_image_transform = input_image_transform
+        
+        self._dataset_size = 0
+        self._train_data_dict = defaultdict()
+        self._valid_data_dict = defaultdict()
+        self._test_data_dict = defaultdict()
+        self._testlayers_data_dict = defaultdict()
+        
+        self._set_data_repo()
+    
+    
+    def __len__(self):
+        """
+        """
+        
+        return self._dataset_size
+
+    
+    def __getitem__(self):
+        """
+        """
+        
+        pass
+
+    
+    @property
+    def train_set(self):
+        """
+        """
+        
+        if len(self._train_data_dict) == 0: raise ValueError("Training dataset not established. ")
+        else: 
+            return ACVD_SubDataset(dataset_dict=self._train_data_dict, dtype=self.dtype, 
+                                   input_img_transform=self.input_image_transform)
+    
+    
+    @property
+    def valid_set(self):
+        """
+        """
+        
+        if len(self._valid_data_dict) == 0: raise ValueError("Validation dataset not established. ")
+        else: 
+            return ACVD_SubDataset(dataset_dict=self._valid_data_dict, dtype=self.dtype, 
+                                   input_img_transform=self.input_image_transform)
+    
+    
+    @property
+    def test_set(self):
+        """
+        """
+        
+        if len(self._test_data_dict) == 0: raise ValueError("Test dataset not established. ")
+        else: 
+            return ACVD_SubDataset(dataset_dict=self._test_data_dict, dtype=self.dtype, 
+                                   input_img_transform=self.input_image_transform)
+    
+    
+    @property
+    def unseen_layers_set(self):
+        """
+        """
+        
+        if len(self._testlayers_data_dict) == 0: raise ValueError("Unseen layers dataset not established. ")
+        else: 
+            return ACVD_SubDataset(dataset_dict=self._testlayers_data_dict, dtype=self.dtype, 
+                                   input_img_transform=self.input_image_transform)
+    
+    
+    @staticmethod
+    def _test_valid_train_indices(dataset_size, test_ratio, valid_ratio, train_ratio, shuffle=False):
+        """
+        """
+        
+        clips_indices_total = list(range(dataset_size))
+        if shuffle: np.random.shuffle(clips_indices_total)
+        split_pt_test = int(np.floor(test_ratio*dataset_size))
+        split_pt_valid = int(np.floor((test_ratio+valid_ratio)*dataset_size))
+        
+        train_set_indices = clips_indices_total[split_pt_valid:]
+        valid_set_indices = clips_indices_total[split_pt_test:split_pt_valid]
+        test_set_indices = clips_indices_total[:split_pt_test]
+        
+        return test_set_indices, valid_set_indices, train_set_indices
+    
+    
+    def _single_layer_dataparser(self, layer_folder_name, 
+                                 train_samples_accum_num, valid_samples_accum_num, test_samples_accum_num,
+                                 train_dict, valid_dict, test_dict, 
+                                 train_ratio, valid_ratio, test_ratio):
+        """
+        """
+        
+        spectrum_dir = os.path.join(self.spectrum_dir, layer_folder_name)
+        visual_dir = os.path.join(self.visual_data_dir, layer_folder_name)
+        
+        spectrum_pathlist = glob.glob(os.path.join(spectrum_dir, "*.{}".format(self.spectrum_extension)))
+        visual_pathlist = glob.glob(os.path.join(visual_dir, "*.{}".format(self.visual_data_extension)))
+        
+        clips_num = len(spectrum_pathlist) # Must be the number of spectrums!
+        test_ind_list, valid_ind_list, train_ind_list = self._test_valid_train_indices(clips_num, test_ratio, valid_ratio, 
+                                                                                       train_ratio, shuffle=False)
+        
+        for test_ind in test_ind_list:
+            test_dict[test_samples_accum_num] = [spectrum_pathlist[test_ind], visual_pathlist[test_ind],
+                                                 layer_folder_name, str(test_ind).zfill(5)]
+            test_samples_accum_num += 1
+        
+        for valid_ind in valid_ind_list:
+            valid_dict[valid_samples_accum_num] = [spectrum_pathlist[valid_ind], visual_pathlist[valid_ind],
+                                                   layer_folder_name, str(valid_ind).zfill(5)]
+            valid_samples_accum_num += 1
+        
+        for train_ind in train_ind_list:
+            train_dict[train_samples_accum_num] = [spectrum_pathlist[train_ind], visual_pathlist[train_ind],
+                                                   layer_folder_name, str(train_ind).zfill(5)]
+            train_samples_accum_num += 1
+        
+        return train_dict, valid_dict, test_dict, train_samples_accum_num, valid_samples_accum_num, test_samples_accum_num
+    
+    
+    def _set_data_repo(self):
+        """
+        """
+        
+        layers_folder_name_list = os.listdir(self.spectrum_dir) # Should be the same if using `self.visual_data_dir`. 
+        
+        if self.test_layer_folder_namelist is not None:
+            testlayer_set_samplenum = 0
+            
+            for testlayer_foldername in self.test_layer_folder_namelist:
+                layers_folder_name_list.remove(testlayer_foldername)
+                
+                self._testlayers_data_dict, _, _, \
+                testlayer_set_samplenum, _, _ = self._single_layer_dataparser(testlayer_foldername, testlayer_set_samplenum, 
+                                                                              0, 0, self._testlayers_data_dict, 
+                                                                              {}, {}, 1., 0., 0.)
+                
+        else: pass
+        
+        train_set_samplenum, valid_set_samplenum, test_set_samplenum = 0, 0, 0
+        for layer_folder_name in layers_folder_name_list:
+            self._train_data_dict, self._valid_data_dict, \
+            self._test_data_dict, train_set_samplenum, \
+            valid_set_samplenum, test_set_samplenum = self._single_layer_dataparser(layer_folder_name, train_set_samplenum, 
+                                                                                    valid_set_samplenum, test_set_samplenum,
+                                                                                    self._train_data_dict, self._valid_data_dict, 
+                                                                                    self._test_data_dict, self.train_ratio, 
+                                                                                    self.valid_ratio, self.test_ratio)
+    
+    
+    def subdataset(self, mode):
+        """
+        """
+        
+        if mode == "train": return self.train_set
+        elif mode == "valid": return self.valid_set
+        elif mode == "test": return self.test_set
+        elif mode == "unseen": return self.unseen_layers_set
+        else: raise ValueError("Wrong mode input. ")
 
 
 class FrameAutoencoderDataset(Dataset):

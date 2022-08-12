@@ -22,6 +22,17 @@ import scipy
 from PARAM import *
 
 
+def synchronize(audio_sample, photodiode_sample, sync_threshold=ACOUSTIC.PHOTO_SYNC_THRSLD):
+    """
+    Synchronize acoustic data with high-speed image data using photodiode.
+    Cut off both the beginning and the end.  
+    """
+    
+    impinging_pt = np.where(photodiode_sample>=sync_threshold)[0][0]
+
+    return audio_sample[impinging_pt:], photodiode_sample[impinging_pt:]
+
+
 class STFTSpectrum(object):
     """
     """

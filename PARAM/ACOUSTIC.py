@@ -20,6 +20,7 @@ AUDIO_SAMPLING_RATE = 96e3 # Default: 96e3. Unit: Hz. Change according to the se
 AUDIO_CLIP_LENGTH_DP = 128 # Default: 128. 
 AUDIO_CLIP_STRIDE_DP = 64 # Default: 64. 
 IS_OMIT_DURATION = True # Used with `OMIT_DURATION`. 
+PHOTO_SYNC_THRSLD = 0.05
 OMIT_DURATION = [0.0720, 0.0619, 0.0638, 0.0682, 0.0658, 0.0696, 0.0686, 0.0731, 
                  0.0680, 0.0686, 0.0658, 0.0672, 0.0704, 0.0673, 0.0622, 0.0673, 
                  0.0657, 0.0717, 0.0628, 0.0622, 0.0696, 0.0669, 0.0660, 0.0680, 
@@ -42,6 +43,8 @@ IS_SAVE = True
 # IS_VISUALIZE = False
 SPECTRUM_FIG_FOLDER = "data/acoustic_data"
 SPECTRUM_FIG_EXTENSION = "png"
+
+SPECTRUM_IMG_SIZE = 256
 
 
 
