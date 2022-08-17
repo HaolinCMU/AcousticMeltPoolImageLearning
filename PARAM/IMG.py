@@ -7,18 +7,21 @@ Created on Fri Jan 28 01:19:34 2022
 
 
 import os
+from sysconfig import is_python_build
 import numpy as np
+
+from PARAM.ACOUSTIC import * # 
 
 
 INTENSITY_THRESHOLD = (0.6, 1.0) # Default: (0.8, 1.0). The intensity threshold of melt pool & bright spatters. 
-SIDEBAR_COLUMNS = [(0,32), (479,511)] # The column range of side bars. Default: [(0, 32), (479, 511)]. 
+SIDEBAR_COLUMNS = [(0,16), (495,511)] # The column range of side bars. Default: [(0, 32), (479, 511)]. 
 SIDEBAR_THRESHOLD = 0.05
 PLUME_THRESHOLD = (0.05, 0.4) # Default: (0.05, 0.4). The intensity threshold of plume and part of the melted track. 
 
 IMAGE_SIZE = [512, 512] # [h, w]. The eventual size of processed image. Typically stay unchanged. We can change the input size right before training. 
 IS_BINARY = False # Default: True. Whether to binarize the eventual processed frame. 
 
-# DBSCAN PARAM
+# DBSCAN PARAM. 
 DBSCAN_EPSILON = 2
 DBSCAN_MIN_PTS = 5
 
@@ -31,3 +34,14 @@ FRAME_REALIGN_AXIS_VECT = np.array([0., 1.])
 
 IMAGE_EXTENSION = "png"
 HU_MOMENTS_FEATURE_IND_LIST = [0,1,2,3,4,5,6] # Must be sorted. 
+
+# VISUAL DATA PARAM.
+IMAGE_SAMPLING_RATE = 22500
+IMAGE_WINDOW_SIZE = int(IMAGE_SAMPLING_RATE*AUDIO_CLIP_LENGTH_DP/AUDIO_SAMPLING_RATE)
+IMAGE_STRIDE_SIZE = int(IMAGE_SAMPLING_RATE*AUDIO_CLIP_STRIDE_DP/AUDIO_SAMPLING_RATE)
+
+IS_AREA = True
+IS_ASPECT_RATIO = True
+IS_P = True
+IS_V = True
+

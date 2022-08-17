@@ -829,12 +829,341 @@ class Model_Conv_2d(object):
     """
     """
 
-    def __init__(self):
+    def __init__(self, input_data_dir, output_data_dir, batch_size, learning_rate, num_epochs, 
+                 valid_ratio=ML_2DCONV.VALID_RATIO, test_ratio=ML_2DCONV.TEST_RATIO, 
+                 test_layer_folder_namelist=ML_2DCONV.TEST_LAYER_FOLDER_NAMELIST, 
+                 model_arxiv_dir=ML_2DCONV.MODEL_ARXIV_DIR, log_path=ML_2DCONV.TRAINING_LOG_SAVEPATH):
+        """
+        Initialize a VAE training framework with the given arguemnts. 
+
+        Parameters:
+        ----------
+            input_data_dir: String. 
+                Directory of input image data. 
+            output_data_dir: String. 
+                Directory of output image data. 
+            batch_size: Int. 
+                Batch size for training and validation dataset. 
+            learning_rate: Float. 
+                Initial learning rate. Constant if no learning rate schedule is applied. 
+            num_epochs: Int. 
+                Epoch number. 
+            loss_beta: Float. 
+                Hyperparameter for controlling weights of the KL-divergence loss function term. 
+                Default: 1.
+            valid_ratio: Float. 
+                Fraction of validation dataset. Used for dataset partition.
+                Default: .05. 
+            test_ratio: Float. 
+                Fraction of testing dataset. Used for dataset partition. 
+                Default: .15. 
+            model_arxiv_dir: String. 
+                Directory for saving the intermediate and final trained neural network models.
+                Default: `ML_VAE.MODEL_ARXIV_DIR`. 
+            log_path: String. 
+                Path for saving the training log file. 
+                Default: `ML_VAE.TRAINING_LOG_SAVEPATH`. 
+
+        Return:
+        ----------
+            None.
+        """
+
+        self.input_data_dir = input_data_dir # String. Directory of input image data. 
+        self.output_data_dir = output_data_dir # String. Directory of output image data. 
+        self.batch_size = batch_size # Int. Batch size for training and validation dataset. 
+        self.learning_rate = learning_rate # Float. Initial learning rate. Constant if no learning rate schedule is applied. 
+        self.num_epochs = num_epochs # Int. Epoch number.  
+
+        self.valid_ratio = valid_ratio # Float. Fraction of validation dataset. Used for dataset partition. 
+        self.test_ratio = test_ratio # Float. Fraction of testing dataset. Used for dataset partition. 
+        self.train_ratio = 1. - self.valid_ratio - self.test_ratio # Float. 
+
+        self.test_layer_folder_namelist = test_layer_folder_namelist
+        self.model_arxiv_dir = model_arxiv_dir # String. Directory for saving the intermediate and final trained neural network models. 
+        self.log_path = log_path # String. Path for saving the training log file. 
+
+        self._is_cuda = torch.cuda.is_available() # Bool. Indicate whether an available cuda is installed. 
+        self._device = torch.device('cuda' if self._is_cuda else 'cpu') # Torch.device. Indicate 'cuda' or 'cpu'. 
+
+        # Dataset & Dataloaders. 
+        self.dataset = AcousticSpectrumVisualDataset(spectrum_data_dir=self.input_data_dir, 
+                                                     visual_data_dir=self.output_data_dir, 
+                                                     train_ratio=self.train_ratio, 
+                                                     valid_ratio=self.valid_ratio, 
+                                                     test_ratio=self.test_ratio, 
+                                                     test_layer_folder_namelist=self.test_layer_folder_namelist) # Torch.Dataset. Dataset object for initializing image dataset. 
+        self._train_set = self.dataset.train_set
+        self._valid_set = self.dataset.valid_set
+        self._test_set = self.dataset.test_set
+        self._unseen_layers_set = self.dataset.unseen_layers_set
+
+        self.train_loader = None # Torch.Dataloader. The loader of training dataset. 
+        self.valid_loader = None # Torch.Dataloader. The loader of validation dataset. 
+        self.test_loader = None # Torch.Dataloader. The loader of testing dataset. 
+        self.unseen_layers_loader = None # Torch.Dataloader. The loader of unseen layers dataset. 
+
+        self.init_dataLoaders() # Initialize, partition and create train, valid and test dataloaders. 
+
+        # Learning model. 
+        self.cnn2d_net = conv_2d.CNN_2D(in_channel_num=ML_2DCONV.IN_CHANNEL_NUM, 
+                                        output_dim=ML_2DCONV.OUTPUT_DIM, 
+                                        conv_hidden_layer_num=ML_2DCONV.CONV_HIDDEN_LAYER_NUM, 
+                                        mlp_hidden_layer_struct=ML_2DCONV.MLP_HIDDEN_LAYER_STRUCT).to(self._device) # Torch.nn.Module. 
+        self._weight_init(self.cnn2d_net) # Initialize weight and bias of the neural network using 'xavier_normal' and 'zeros' methods, respectively. 
+        self._loss_func = ML_2DCONV.LOSS_FUNC # Torch.nn.Module. Self-defined loss function for VAE neural network. 
+        self.epoch_loss_list_train = [] # List of Float. Training loss value of each epoch. 
+        self.epoch_loss_list_valid = [] # List of Float. Validation loss value of each epoch. 
+        self.batch_loss_list_train = [] # List of Float. Training loss value of each batch. 
+        self.batch_loss_list_valid = [] # List of Float. Validation loss value of each batch. 
+        self.lr_list = [] # List of Float. Learning rate of each epoch. All the same if learning rate schedule is not applied. 
+
+        self._training_log = [] # List of String. List of lines of training log. 
+        self._training_time_total = 0 # Float. Total training time. 
+
+
+    @staticmethod
+    def _weight_init(net):
         """
         """
 
-        pass
+        for layer in net.modules():
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_normal_(layer.weight.data, gain=1)
+                nn.init.zeros_(layer.bias.data)
 
+            elif isinstance(layer, nn.Conv2d):
+                nn.init.xavier_normal_(layer.weight.data, gain=1)
+
+            elif isinstance(layer, nn.ConvTranspose2d):
+                nn.init.xavier_normal_(layer.weight.data, gain=1)
+
+            else: pass
+
+
+    def init_dataLoaders(self):
+        """
+        """
+
+        if self._train_set is None or self._valid_set is None or self._test_set is None:
+            raise ValueError("Subdataset not correctly generated. ")
+
+        else:
+            train_set_indices = [i for i in range(len(self._train_set))]
+            valid_set_indices = [i for i in range(len(self._valid_set))]
+            test_set_indices = [i for i in range(len(self._test_set))]
+            unseen_layers_set_indices = [i for i in range(len(self._unseen_layers_set))] # Order of specified unseen layers' images and visual features. 
+
+            train_set_sampler = torch.utils.data.SubsetRandomSampler(train_set_indices)
+            valid_set_sampler = torch.utils.data.SubsetRandomSampler(valid_set_indices)
+            test_set_sampler = torch.utils.data.SubsetRandomSampler(test_set_indices)
+            unseen_layers_set_sampler = torch.utils.data.SubsetRandomSampler(unseen_layers_set_indices)
+
+            self.train_loader = torch.utils.data.DataLoader(self._train_set, batch_size=self.batch_size, sampler=train_set_sampler)
+            self.valid_loader = torch.utils.data.DataLoader(self._valid_set, batch_size=self.batch_size, sampler=valid_set_sampler)
+            self.test_loader = torch.utils.data.DataLoader(self._test_set, sampler=test_set_sampler)
+            self.unseen_layers_loader = torch.utils.data.DataLoader(self._unseen_layers_set, sampler=unseen_layers_set_sampler)
+
+
+    def train(self):
+        """
+        """
+
+        if not os.path.isdir(self.model_arxiv_dir): os.mkdir(self.model_arxiv_dir)
+        clr_dir(self.model_arxiv_dir) # Clear the directory of pre-saved trained models before starting a new batch of training. 
+
+        # Define criterion and optimizer
+        optimizer = torch.optim.Adam(self.cnn2d_net.parameters(), self.learning_rate, 
+                                     weight_decay=ML_2DCONV.LAMBDA_REGLR)
+        
+        # Iterative training and validation
+        print("##############################")
+        print("Starting training....")
+        self._training_log.append("({}) Starting training....".format(str(datetime.today())))
+        self._training_log.append("--------------------")
+        start_time = time.time()
+        for epoch in range(self.num_epochs):
+            # ---------- Apply learning rate decaying schedule ---------- 
+            if epoch != 0 and epoch % ML_2DCONV.LEARNING_RATE_SCHEDULE_PERIOD == 0: 
+                for p in optimizer.param_groups: p['lr'] *= ML_2DCONV.LEARNING_RATE_DECAY_FACTOR
+            self.lr_list.append(optimizer.state_dict()['param_groups'][0]['lr'])
+            
+            # ---------- Training ----------
+            loss_train_perEpoch = 0
+            for iter, batch in enumerate(self.train_loader):
+                # Forward. 
+                inputs_train, groundtruths_train = copy.deepcopy(batch['input']), copy.deepcopy(batch['output'])
+                batch_size_temp = groundtruths_train.size(0) # Change to 1 if not intended for getting batch-averaged loss. 
+
+                inputs_train = inputs_train.to(self._device)
+                groundtruths_train = groundtruths_train.to(self._device)
+                
+                self.cnn2d_net.train()
+                output = self.cnn2d_net(inputs_train)
+                loss_train_perBatch_perEpoch = self._loss_func(output, groundtruths_train) # Total loss of one batch. 
+                
+                # Back propagation. 
+                optimizer.zero_grad()
+                loss_train_perBatch_perEpoch.backward()
+                optimizer.step()
+
+                loss_train_perEpoch_perSample = copy.deepcopy(float(loss_train_perBatch_perEpoch.item()/batch_size_temp))
+                self.batch_loss_list_train.append(loss_train_perEpoch_perSample) # Average loss on batch size to obtain loss per sample. 
+                loss_train_perEpoch += loss_train_perEpoch_perSample # Adding up averaged loss per sample. 
+
+                # Check training loss every batch. 
+                if (iter+1) % 50 == 0 or iter + 1 == len(self.train_loader):
+                    batch_line_temp = "Epoch: [{}/{}]\t| Batch: [{}/{}]\t| Loss: {:.4f}\t| Time: {:.4f} s". \
+                                       format(epoch+1, self.num_epochs, iter+1, len(self.train_loader), 
+                                              loss_train_perEpoch_perSample, time.time()-start_time)
+                    self._training_log.append(batch_line_temp)
+                    print(batch_line_temp)
+            
+            loss_train_perEpoch /= len(self.train_loader)
+            self.epoch_loss_list_train.append(loss_train_perEpoch) # Average loss on batch number to obtain loss per epoch per batch. 
+            
+            # ---------- Validation ----------
+            loss_valid_perEpoch = 0
+            for _, batch in enumerate(self.valid_loader):
+                inputs_valid, groundtruths_valid = copy.deepcopy(batch['input']), copy.deepcopy(batch['output'])
+                batch_size_temp = groundtruths_valid.size(0) # Change to 1 if not intended for getting batch-averaged loss. 
+
+                inputs_valid = inputs_valid.to(self._device)
+                groundtruths_valid = groundtruths_valid.to(self._device)
+                
+                self.cnn2d_net.eval()
+                with torch.no_grad():
+                    output = self.cnn2d_net(inputs_valid)
+                    loss_valid_perBatch_perEpoch = self._loss_func(output, groundtruths_valid)
+
+                    loss_valid_perEpoch_perSample = copy.deepcopy(float(loss_valid_perBatch_perEpoch.item()/batch_size_temp))
+                    self.batch_loss_list_valid.append(loss_valid_perEpoch_perSample) # Average loss on batch size to obtain loss per sample. 
+                    loss_valid_perEpoch += loss_valid_perEpoch_perSample # Adding up averaged loss per sample. 
+            
+            loss_valid_perEpoch /= len(self.valid_loader)
+            self.epoch_loss_list_valid.append(loss_valid_perEpoch) # Average loss on batch number to obtain loss per epoch per batch. 
+
+            # ---------- Wrap-up this epoch ----------
+            epoch_line_temp = "Epoch Number: {}\t| Train Loss: {:.4f}\t| Valid Loss: {:.4f}\t| Time Elapsed: {:.4f} s". \
+                               format(int(epoch+1), loss_train_perEpoch, loss_valid_perEpoch, time.time()-start_time)
+            self._training_log.append(epoch_line_temp)
+            self._training_log.append("--------------------")
+            print(epoch_line_temp)
+            print("--------------------")
+
+            # Save trained intermediate models every certain epochs. 
+            if (epoch+1) % ML_2DCONV.MODEL_CHECKPOINT_EPOCH_NUM == 0:
+                model_savePath_temp = os.path.join(self.model_arxiv_dir, "model_epoch_{}.pkl".format(epoch+1))
+                torch.save(self.cnn2d_net.state_dict(), model_savePath_temp)
+            
+            torch.cuda.empty_cache() # Clear unnecessary memory allocations. 
+        
+        # ---------- Summary & Save ----------
+        self._training_time_total = time.time() - start_time
+        print("Training completed. ")
+        print("##############################")
+        torch.save(self.cnn2d_net.state_dict(), os.path.join(self.model_arxiv_dir, "model_final.pkl")) # Save the final trained model.
+        self._training_log.append("({}) Training completed. ".format(str(datetime.today())))
+        self._save_training_log() # Save a training log. 
+
+
+    def evaluate(self, model, test_loader):
+        """
+        """
+
+        if test_loader is None: return None, None, None
+        else:
+            loss_list, groundtruths_list, generations_list = [], [], []
+            
+            for _, batch in enumerate(test_loader): 
+                inputs_test, groundtruths_test = copy.deepcopy(batch['input']), copy.deepcopy(batch['output'])
+                batch_size_temp = groundtruths_test.size(0)
+                
+                inputs_test = inputs_test.to(self._device)
+                groundtruths_test = groundtruths_test.to(self._device)
+                
+                model.eval()
+                with torch.no_grad():
+                    output = model(inputs_test)
+                    loss_test_perBatch = self._loss_func(output, groundtruths_test)
+                    loss_list.append(float(loss_test_perBatch.item()/batch_size_temp)) # Loss per test sample.
+
+                    if len(groundtruths_list) <= 50: # Prescribe size limit to save space. 
+                        groundtruths_list += [groundtruths_test.cpu().numpy()[i,:] for i in range(batch_size_temp)]
+                    if len(generations_list) <= 50: # Prescribe size limit to save space. 
+                        generations_list += [output.cpu().numpy()[i,:] for i in range(batch_size_temp)]
+            
+            return loss_list, groundtruths_list, generations_list
+
+    
+    def loss_plot(self):
+        """
+        """
+
+        epochs_ind_array = np.arange(self.num_epochs, step=1)
+        train_batch_ind_array = np.arange(self.num_epochs, step=1./len(self.train_loader))
+        valid_batch_ind_array = np.arange(self.num_epochs, step=1./len(self.valid_loader))
+
+        epoch_loss_train_array = np.log(np.array(self.epoch_loss_list_train).astype(float).reshape(-1))
+        epoch_loss_valid_array = np.log(np.array(self.epoch_loss_list_valid).astype(float).reshape(-1))
+        batch_loss_train_array = np.log(np.array(self.batch_loss_list_train).astype(float).reshape(-1))
+        batch_loss_valid_array = np.log(np.array(self.batch_loss_list_valid).astype(float).reshape(-1))
+
+        plt.figure(figsize=(20,20))
+        plt.rcParams.update({"font.size": 35})
+        plt.tick_params(labelsize=35)
+        line1, = plt.plot(train_batch_ind_array, batch_loss_train_array, 
+                          color='blue', linewidth=10.0, alpha=0.3, label="Train Loss (log) - Batch")
+        line2, = plt.plot(valid_batch_ind_array, batch_loss_valid_array, 
+                          color='orange', linewidth=10.0, alpha=0.3, label="Valid Loss (log) - Batch")
+        line3, = plt.plot(epochs_ind_array, epoch_loss_train_array, 
+                          color='blue', linewidth=3.0, label="Train Loss (log) - Epoch")
+        line4, = plt.plot(epochs_ind_array, epoch_loss_valid_array, 
+                          color='orange', linewidth=3.0, label="Valid Loss (log) - Epoch")
+        plt.xlabel("Epochs", fontsize=40)
+        plt.ylabel("log(Loss)", fontsize=40)
+        plt.legend([line1,line2,line3,line4], ["Train Loss (log) - Batch", 
+                                               "Valid Loss (log) - Batch",
+                                               "Train Loss (log) - Epoch", 
+                                               "Valid Loss (log) - Epoch",], prop={"size": 40})
+        plt.title("Train & Valid Loss v/s Epochs")
+        plt.savefig("Train_Valid_Loss_VAE.png")
+
+
+    @property
+    def training_time(self):
+        """
+        """
+
+        return self._training_time_total
+
+
+    def _save_training_log(self):
+        """
+        Save framework setup and training info. as a '.log' file. 
+        """
+
+        heading = ["Date and Time: {}".format(str(datetime.today())), 
+                   "##############################",
+                   "Batch size: {}".format(self.batch_size),
+                   "Learning rate: {}".format(self.learning_rate),
+                   "Epoch number: {}".format(self.num_epochs),
+                   "Dataset size: {}".format(len(self.dataset)),
+                   "Train/Valid/Test: {:.2f}/{:.2f}/{:.2f}".format(self.train_ratio, 
+                                                                   self.valid_ratio, 
+                                                                   self.test_ratio), 
+                   "##############################"
+                   ]
+
+        self._training_log.append("##############################"),
+        self._training_log.append("Total training time: {:.4f}. ".format(self._training_time_total))
+
+        content = copy.deepcopy(heading + self._training_log)
+
+        with open(self.log_path, 'w') as f:
+            content = '\n'.join(content)
+            f.write(content)
+            f.close()
 
 
 if __name__ == "__main__":

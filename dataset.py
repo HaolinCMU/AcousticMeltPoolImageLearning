@@ -34,7 +34,7 @@ class ACVD_SubDataset(Dataset):
     """
     
     def __init__(self, dataset_dict=None, dtype=torch.float32, 
-                 input_img_transform=Compose([Resize(ACOUSTIC.SPECTRUM_IMG_SIZE),ToTensor()])):
+                 input_img_transform=Compose([Resize(ML_2DCONV.IMG_SIZE),ToTensor()])):
         """
         """
         
@@ -58,8 +58,10 @@ class ACVD_SubDataset(Dataset):
         
         if self.dataset is None: raise ValueError("Dataset not defined. ")
         else:
+            if len(self.dataset) == 0: raise ValueError("No data is found in the data dictionary. ")
+
             input_img = PIL.Image.fromarray(np.uint8(mig.imread(self.dataset[ind][0])*255)) # Read spectrum from a path.
-            output_label = torch.from_numpy(np.load(self.dataset[ind][1])).to(self.dtype) # Read label vector from a path.
+            output_label = torch.from_numpy(np.load(self.dataset[ind][1]).reshape(-1)).to(self.dtype) # Read label vector from a path.
             
             if self.input_img_transform:
                 input_img = copy.deepcopy(self.input_img_transform(input_img).to(self.dtype)) # Transformed tensor of prescribed data type. [c, h, w]. 
@@ -75,7 +77,7 @@ class AcousticSpectrumVisualDataset(Dataset):
     def __init__(self, spectrum_data_dir, visual_data_dir, dtype=torch.float32, 
                  train_ratio=0.8, valid_ratio=0.05, test_ratio=0.15, test_layer_folder_namelist=None, 
                  spectrum_extension=ACOUSTIC.SPECTRUM_FIG_EXTENSION, visual_data_extension="npy", 
-                 input_image_transform=Compose([Resize(ACOUSTIC.SPECTRUM_IMG_SIZE),ToTensor()])):
+                 input_image_transform=Compose([Resize(ML_2DCONV.IMG_SIZE),ToTensor()])):
         """
         `spectrum_data_dir` and `visual_data_dir` must have the same inner data structure. 
         """
@@ -98,6 +100,16 @@ class AcousticSpectrumVisualDataset(Dataset):
         self._valid_data_dict = defaultdict()
         self._test_data_dict = defaultdict()
         self._testlayers_data_dict = defaultdict()
+
+        self._train_set_obj = None
+        self._valid_set_obj = None
+        self._test_set_obj = None
+        self._testlayers_set_obj = None
+
+        self._train_set_size = None
+        self._valid_set_size = None
+        self._test_set_size = None
+        self._unseen_layers_set_size = None
         
         self._set_data_repo()
     
@@ -121,10 +133,15 @@ class AcousticSpectrumVisualDataset(Dataset):
         """
         """
         
-        if len(self._train_data_dict) == 0: raise ValueError("Training dataset not established. ")
+        if len(self._train_data_dict) == 0: 
+            if self._dataset_size != 0 and int(np.floor(self.train_ratio*self._dataset_size)) <= 0:
+                raise ValueError("Training dataset not established. ")
+            else: return None
         else: 
-            return ACVD_SubDataset(dataset_dict=self._train_data_dict, dtype=self.dtype, 
-                                   input_img_transform=self.input_image_transform)
+            if self._train_set_obj is None:
+                self._train_set_obj = ACVD_SubDataset(dataset_dict=self._train_data_dict, dtype=self.dtype, 
+                                                      input_img_transform=self.input_image_transform)
+            return self._train_set_obj
     
     
     @property
@@ -132,10 +149,15 @@ class AcousticSpectrumVisualDataset(Dataset):
         """
         """
         
-        if len(self._valid_data_dict) == 0: raise ValueError("Validation dataset not established. ")
+        if len(self._valid_data_dict) == 0: 
+            if self._dataset_size != 0 and int(np.floor(self.valid_ratio*self._dataset_size)) <= 0:
+                raise ValueError("Validation dataset not established. ")
+            else: return None
         else: 
-            return ACVD_SubDataset(dataset_dict=self._valid_data_dict, dtype=self.dtype, 
-                                   input_img_transform=self.input_image_transform)
+            if self._valid_set_obj is None:
+                self._valid_set_obj = ACVD_SubDataset(dataset_dict=self._valid_data_dict, dtype=self.dtype, 
+                                                      input_img_transform=self.input_image_transform)
+            return self._valid_set_obj
     
     
     @property
@@ -143,10 +165,15 @@ class AcousticSpectrumVisualDataset(Dataset):
         """
         """
         
-        if len(self._test_data_dict) == 0: raise ValueError("Test dataset not established. ")
+        if len(self._test_data_dict) == 0: 
+            if self._dataset_size != 0 and int(np.floor(self.test_ratio*self._dataset_size)) <= 0:
+                raise ValueError("Test dataset not established. ")
+            else: return None
         else: 
-            return ACVD_SubDataset(dataset_dict=self._test_data_dict, dtype=self.dtype, 
-                                   input_img_transform=self.input_image_transform)
+            if self._test_set_obj is None:
+                self._test_set_obj = ACVD_SubDataset(dataset_dict=self._test_data_dict, dtype=self.dtype, 
+                                                     input_img_transform=self.input_image_transform)
+            return self._test_set_obj
     
     
     @property
@@ -154,11 +181,52 @@ class AcousticSpectrumVisualDataset(Dataset):
         """
         """
         
-        if len(self._testlayers_data_dict) == 0: raise ValueError("Unseen layers dataset not established. ")
+        if len(self._testlayers_data_dict) == 0: 
+            if self.test_layer_folder_namelist is None: 
+                raise ValueError("Unseen layers dataset not established. ")
+            else: return None
         else: 
-            return ACVD_SubDataset(dataset_dict=self._testlayers_data_dict, dtype=self.dtype, 
-                                   input_img_transform=self.input_image_transform)
+            if self._testlayers_set_obj is None: 
+                self._testlayers_set_obj = ACVD_SubDataset(dataset_dict=self._testlayers_data_dict, dtype=self.dtype, 
+                                                           input_img_transform=self.input_image_transform)
+            return self._testlayers_set_obj
     
+
+    @property
+    def train_set_size(self):
+        """
+        """
+
+        if self._train_set_size is not None: return self._train_set_size
+        else: raise ValueError("Training dataset not established. ")
+    
+
+    @property
+    def valid_set_size(self):
+        """
+        """
+
+        if self._valid_set_size is not None: return self._valid_set_size
+        else: raise ValueError("Validation dataset not established. ")
+
+    
+    @property
+    def test_set_size(self):
+        """
+        """
+
+        if self._test_set_size is not None: return self._test_set_size
+        else: raise ValueError("Testing dataset not established. ")
+
+    
+    @property
+    def unseen_layers_set_size(self):
+        """
+        """
+
+        if self._unseen_layers_set_size is not None: return self._unseen_layers_set_size
+        else: return 0
+
     
     @staticmethod
     def _test_valid_train_indices(dataset_size, test_ratio, valid_ratio, train_ratio, shuffle=False):
@@ -183,6 +251,8 @@ class AcousticSpectrumVisualDataset(Dataset):
                                  train_ratio, valid_ratio, test_ratio):
         """
         """
+
+        P, V = ACOUSTIC.extract_process_param_fromAcousticFilename(layer_folder_name)
         
         spectrum_dir = os.path.join(self.spectrum_dir, layer_folder_name)
         visual_dir = os.path.join(self.visual_data_dir, layer_folder_name)
@@ -190,23 +260,23 @@ class AcousticSpectrumVisualDataset(Dataset):
         spectrum_pathlist = glob.glob(os.path.join(spectrum_dir, "*.{}".format(self.spectrum_extension)))
         visual_pathlist = glob.glob(os.path.join(visual_dir, "*.{}".format(self.visual_data_extension)))
         
-        clips_num = len(spectrum_pathlist) # Must be the number of spectrums!
+        clips_num = min(len(spectrum_pathlist), len(visual_pathlist)) # Must be the smaller number of spectrums and visuals!
         test_ind_list, valid_ind_list, train_ind_list = self._test_valid_train_indices(clips_num, test_ratio, valid_ratio, 
                                                                                        train_ratio, shuffle=False)
         
         for test_ind in test_ind_list:
             test_dict[test_samples_accum_num] = [spectrum_pathlist[test_ind], visual_pathlist[test_ind],
-                                                 layer_folder_name, str(test_ind).zfill(5)]
+                                                 layer_folder_name, str(test_ind).zfill(5), P, V]
             test_samples_accum_num += 1
         
         for valid_ind in valid_ind_list:
             valid_dict[valid_samples_accum_num] = [spectrum_pathlist[valid_ind], visual_pathlist[valid_ind],
-                                                   layer_folder_name, str(valid_ind).zfill(5)]
+                                                   layer_folder_name, str(valid_ind).zfill(5), P, V]
             valid_samples_accum_num += 1
         
         for train_ind in train_ind_list:
             train_dict[train_samples_accum_num] = [spectrum_pathlist[train_ind], visual_pathlist[train_ind],
-                                                   layer_folder_name, str(train_ind).zfill(5)]
+                                                   layer_folder_name, str(train_ind).zfill(5), P, V]
             train_samples_accum_num += 1
         
         return train_dict, valid_dict, test_dict, train_samples_accum_num, valid_samples_accum_num, test_samples_accum_num
@@ -229,6 +299,8 @@ class AcousticSpectrumVisualDataset(Dataset):
                                                                               0, 0, self._testlayers_data_dict, 
                                                                               {}, {}, 1., 0., 0.)
                 
+            self._unseen_layers_set_size = copy.deepcopy(testlayer_set_samplenum)
+
         else: pass
         
         train_set_samplenum, valid_set_samplenum, test_set_samplenum = 0, 0, 0
@@ -240,6 +312,10 @@ class AcousticSpectrumVisualDataset(Dataset):
                                                                                     self._train_data_dict, self._valid_data_dict, 
                                                                                     self._test_data_dict, self.train_ratio, 
                                                                                     self.valid_ratio, self.test_ratio)
+        
+        self._train_set_size = copy.deepcopy(train_set_samplenum)
+        self._valid_set_size = copy.deepcopy(valid_set_samplenum)
+        self._test_set_size = copy.deepcopy(test_set_samplenum)
     
     
     def subdataset(self, mode):

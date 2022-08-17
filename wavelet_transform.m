@@ -1,22 +1,15 @@
 close all; clear all; clc
 
 %%
-raw_audio_folder_path = 'data/raw_audio_data';
-acoustic_data_folder_path = 'data/acoustic_data'; % Save generated wavelet spectrums. 
+raw_audio_folder_path = 'F:/data/processed/acoustic/clips';
+spectrum_data_folder_path = 'F:/data/processed/acoustic/wavelet_spectrums_short'; % Save generated wavelet spectrums. 
+clips_folder_list = dir(fullfile(raw_audio_folder_path));
 
-audio_paths = dir(fullfile(raw_audio_folder_path, '*.wav'));
-audio_clip_length = 128; % In sample points. Length of 128 corresponds to ~(>)1ms audio and 30 image frames. 
-audio_sampling_stride = 64;
-fs = 96e3; % Sampling rate; 
+fs = 100e3; % Sampling rate; 
+
 wavelet = 'amor'; % Default: 'amor' or 'bump'. 
-OMIT_DURATION = [0.0720, 0.0619, 0.0638, 0.0682, 0.0658, 0.0696, ...
-                 0.0686, 0.0731, 0.0680, 0.0686, 0.0658, ...
-                 0.0672, 0.0704, 0.0673, 0.0622, 0.0673, 0.0657, ...
-                 0.0717, 0.0628, 0.0622, 0.0696, 0.0669, 0.0660, ...
-                 0.0680, 0.0627, 0.0631, 0.0645, 0.0726, 0.0720]; % In s.
-
-fig_resolution = 300; % Default: 300.
-colorbar_lim = [0 0.15]; % Default: [0 0.15]. Must keep consistent throughout the wavelet spectrogram generation. 
+fig_resolution = 300; % dpi. Default: 300.
+colorbar_lim = [0 0.03]; % Default: [0 0.03]. Must keep consistent throughout the wavelet spectrogram graph generation. 
 
 is_filter_bank = 0; % Default: 0. 
 is_log_scale = 1; % Default: 0. 
@@ -26,22 +19,32 @@ is_colorbar = 0; % Default: 0.
 
 %%
 poolobj = parpool(8); % Max: 8 workers.
-parfor i = 1:length(audio_paths)
-    acoustic_data_subfolder_path = sprintf('%s/%04d', acoustic_data_folder_path, i-1);
+parfor i = 1:length(clips_folder_list)
+    if i <= 2 % Skip the first two fake "folders". 
+        continue
+    end
+    
+    clips_subfolder_path = sprintf('%s/%s', raw_audio_folder_path, clips_folder_list(i).name);
+    spectrum_subfolder_path = sprintf('%s/%s', spectrum_data_folder_path, clips_folder_list(i).name);
 
-    if exist(acoustic_data_subfolder_path, 'dir') == 0
-        mkdir(acoustic_data_subfolder_path);
+    if exist(spectrum_subfolder_path, 'dir') == 0
+        mkdir(spectrum_subfolder_path);
     end
 
-    audio_path = sprintf('%s/%s', audio_paths(i).folder, audio_paths(i).name);
-    [y, ~] = audioread(audio_path);
-    y_eff = y(round(OMIT_DURATION(i)*fs):end);
+    clips_file_paths = dir(fullfile(clips_subfolder_path, "*.mat"));
+    clips_mat = load(sprintf('%s/%s', clips_subfolder_path, clips_file_paths(1).name));
 
-    partitionAndCWTtoFolder(y_eff, audio_clip_length, audio_sampling_stride, ...
-                            fs, wavelet, fig_resolution, acoustic_data_subfolder_path, ...
-                            is_filter_bank, is_log_scale, is_multiview, ...
-                            is_colorbar, colorbar_lim);
+    for j = 1:size(clips_mat.clips_mat, 1)
+        clip_temp = clips_mat.clips_mat(j,:);
+        clip_temp = reshape(clip_temp, size(clip_temp, 2), []); % Reshape it as a row vector. 
+        file_name = sprintf('%s/%06d.png', spectrum_subfolder_path, j-1);
 
+        CWT(clip_temp, wavelet, fs, fig_resolution, file_name, ...
+            is_filter_bank, is_log_scale, is_multiview, ...
+            is_colorbar, colorbar_lim);
+    end
+
+    clips_mat = []; % Release memory. 
 end
 
 delete(poolobj);
@@ -109,7 +112,6 @@ function CWT(data, wavelet, fs, fig_resolution, file_name, ...
         is_multiview: Int/Bool. 0: plot CWT spectrum only. 1: plot both CWT
                         sperctrum and temporal waveform. 
     %}
-    
 
     data_len = size(data,1);
 
@@ -205,7 +207,6 @@ function ExportGraph(f, fig_name, fig_dpi)
     fig_name: Path to save the graph. 
     fig_dpi: Dpi of the saved graph. 
     %}
+
     exportgraphics(f, fig_name, 'Resolution', fig_dpi);
 end
-
-

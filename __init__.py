@@ -30,6 +30,7 @@ from dataprocessing import *
 from model import *
 
 from files import *
+from acoustic_processing import *
 from image_processing import *
 from training import *
 from dataset import *
@@ -46,8 +47,8 @@ FRAME_CODER_MODEL_TYPE = 'VAE' # Options: 'VAE', 'AE'
 VAE_TRAINING_TOKEN = False
 # IMAGE_FEATURE_TYPE = 'Hu'
 
-ACOUSTIC_DATA_PROCESSING_TOKEN = True
-# ACOUSTIC_SPECTROGRAM_TYPE = 'wavelet' # 'wavelet', 'stft', or 'matlab'. 
+ACOUSTIC_DATA_PROCESSING_TOKEN = False
+VISUAL_DATA_PROCESSING_TOKEN = False
 ACOUSTIC_VISUAL_MODEL_TYPE = 'conv_2d'
 ACOUSTIC_VISUAL_TRAINING_TOKEN = True
 
@@ -81,22 +82,17 @@ if __name__ == "__main__":
     # Acoustic data variables & param. 
     parser.add_argument("--acoustic_data_subdir", default=BASIC.AUDIO_DATA_SUBDIR, type=str,
                         help="The folder name of raw acoustic data, including subfolders of different layers. ")
-    parser.add_argument("--acoustic_processed_data_subdir", default=BASIC.ACOUSTIC_PROCESSED_DATA_SUBDIR, type=str, 
+    parser.add_argument("--photodiode_data_subdir", default=BASIC.PHOTODIODE_DATA_SUBDIR, type=str,
+                        help="The folder name of raw acoustic data, including subfolders of different layers. ")
+    parser.add_argument("--acoustic_processed_data_subdir", default=BASIC.ACOUSTIC_PROCESSED_DATA_SUBFOLDER, type=str, 
                         help="The folder name of processed acoustic data, including subfolders of different layers. ")
-    parser.add_argument("--acoustic_extension", default=IMG.ACOUSTIC_EXTENSION, type=str, 
+    parser.add_argument("--acoustic_extension", default=ACOUSTIC.AUDIO_FILE_EXTENSION, type=str, 
                         help="The extension (file format) of raw acoustic files. ")
-    
-    parser.add_argument("--image_size", default=IMG.IMAGE_SIZE, type=list, 
-                        help="The intended size ([h, w]) of the processed image. ")
-    parser.add_argument("--img_straighten_keyword", default=IMG.IMG_STRAIGHTEN_KEYWORD, type=str, 
-                        help="The keyword of image straighten mode for the class `Frame`. ")
-    parser.add_argument("--frame_align_mode", default=IMG.FRAME_ALIGN_MODE, type=str, 
-                        help="The keyword indicating the moving axis of the melt pool image frame. ")
-    parser.add_argument("--frame_realign_axis_vect", default=IMG.FRAME_REALIGN_AXIS_VECT, type=str, 
-                        help="The keyword indicating the targeted axis of the melt pool image frame. ")
-    parser.add_argument("--is_binary_frame", default=IMG.IS_BINARY, type=bool, 
-                        help="Indicate whether the processed images require binarization. ")
-    
+    parser.add_argument("--acoustic_clips_folder_path", default=BASIC.ACOUSTIC_CLIPS_FOLDER_PATH, type=str, 
+                        help="The directory of saved clips. ")
+    parser.add_argument("--acoustic_specs_folder_path", default=BASIC.ACOUSTIC_SPECS_FOLDER_PATH, type=str, 
+                        help="The directory of saved (short) wavelet spectrums. ")
+
     # Frame coder model param. (VAE & AE) 
     parser.add_argument("--vae_input_img_dir", default=ML_VAE.INPUT_IMAGE_DATA_DIR, type=str, 
                         help="The directory of all input images for VAE. ")
@@ -111,7 +107,21 @@ if __name__ == "__main__":
     parser.add_argument("--vae_loss_beta", default=ML_VAE.LOSS_BETA, type=float, 
                         help="Hyperparameter for controlling weights of the KL-divergence loss function term. ")
     
-    # Acoustic data processing 
+    # Visual data processing. 
+    parser.add_argument("--visual_data_subdir", default=BASIC.VISUAL_DATA_SUBDIR, type=str,
+                        help="The directory of visual data. ")
+
+    # Acoustic to visual feature - cnn2d - param. 
+    parser.add_argument("--cnn2d_input_data_dir", default=ML_2DCONV.INPUT_WAVELET_SHORT_DIR, type=str, 
+                        help="The directory of all input acoustic spectrum (short wavelet) data for conv_2d. ")
+    parser.add_argument("--cnn2d_output_data_dir", default=ML_2DCONV.OUTPUT_VISUAL_DIR, type=str, 
+                        help="The directory of all output visual features for conv_2d. ")
+    parser.add_argument("--cnn2d_batch_size", default=ML_2DCONV.BATCH_SIZE, type=int, 
+                        help="The batch size of dataset for conv_2d. ")
+    parser.add_argument("--cnn2d_lr", default=ML_2DCONV.LEARNING_RATE, type=float, 
+                        help="The (initial) learning rate of training for conv_2d. ")
+    parser.add_argument("--cnn2d_num_epochs", default=ML_2DCONV.NUM_EPOCHS, type=int, 
+                        help="The epoch numbers of training for conv_2d. ")
 
     args = parser.parse_args()
 
@@ -148,9 +158,7 @@ if __name__ == "__main__":
                 img_processed_file_path_temp = os.path.join(img_processed_subfolder_path, 
                                                             "{}_{}.{}".format(img_subfolder, img_ind, args.img_extension))
                 img_processed_temp.save(img_processed_file_path_temp)
-    
-    
-    
+
     ####################################################################################################################
 
     # Autoencoder training. 
@@ -226,5 +234,62 @@ if __name__ == "__main__":
 
     ####################################################################################################################
 
+    # Acoustic data processing. 
+    if ACOUSTIC_DATA_PROCESSING_TOKEN:
+        audio_file_list = os.listdir(args.acoustic_data_subdir)
+        for audio_file in audio_file_list:
+            audio_file_name_temp = os.path.splitext(audio_file)[0]
+            audio_file_path_temp = os.path.join(args.acoustic_data_subdir, audio_file)
+            photodiode_file_path_temp = os.path.join(args.photodiode_data_subdir, audio_file)
+
+            sync_obj_temp = Synchronizer(acoustic_data_file_path=audio_file_path_temp,
+                                         photodiode_data_file_path=photodiode_file_path_temp)
+            audio_sample = sync_obj_temp.acoustic_synced_data(audio_sensor_No=ACOUSTIC.AUDIO_SENSOR_NO)
+
+            clips_obj = Clips(data=audio_sample, data_label=audio_file_name_temp)
+            clips_obj.save_data_offline(is_clips=ACOUSTIC.IS_SAVE_CLIPS, is_spectrums=ACOUSTIC.IS_SAVE_SPECTRUMS)
+
+    ####################################################################################################################
+
+    # Visual data processing. 
+    if VISUAL_DATA_PROCESSING_TOKEN:
+        collect_visual_data(img_dir=args.img_data_subdir, visual_dir=args.visual_data_subdir)
+
+    ####################################################################################################################
+
     # Mainstream learning. 
+    if ACOUSTIC_VISUAL_TRAINING_TOKEN:
+        if ACOUSTIC_VISUAL_MODEL_TYPE == 'conv_2d':
+            cnn2d_model = Model_Conv_2d(input_data_dir=args.cnn2d_input_data_dir, output_data_dir=args.cnn2d_output_data_dir, 
+                                        batch_size=args.cnn2d_batch_size, learning_rate=args.cnn2d_lr, 
+                                        num_epochs=args.cnn2d_num_epochs)
+
+            cnn2d_model.train() # Train the model. 
+            cnn2d_model.loss_plot() # Plot Train & Valid Loss. 
+
+            # In-situ evaluation. Test on outside dataset should be implemented separately. 
+            # Validation & data saving process takes roughly 10 mins. 
+            loss_list_test, \
+            groundtruths_list_test, \
+            generations_list_test = cnn2d_model.evaluate(cnn2d_model.cnn2d_net, cnn2d_model.test_loader)
+
+            loss_list_train, \
+            groundtruths_list_train, \
+            generations_list_train = cnn2d_model.evaluate(cnn2d_model.cnn2d_net, cnn2d_model.train_loader)
+
+            loss_list_unseen, \
+            groundtruths_list_unseen, \
+            generations_list_unseen = cnn2d_model.evaluate(cnn2d_model.cnn2d_net, cnn2d_model.unseen_layers_loader) 
+
+            np.save("loss_list_test.npy", loss_list_test)
+            np.save("groundtruths_list_test.npy", groundtruths_list_test)
+            np.save("generations_list_test.npy", generations_list_test)
+
+            np.save("loss_list_train.npy", loss_list_train)
+            np.save("groundtruths_list_train.npy", groundtruths_list_train)
+            np.save("generations_list_train.npy", generations_list_train)
+
+            np.save("loss_list_unseen.npy", loss_list_unseen)
+            np.save("groundtruths_list_unseen.npy", groundtruths_list_unseen)
+            np.save("generations_list_unseen.npy", generations_list_unseen)
 

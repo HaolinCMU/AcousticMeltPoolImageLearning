@@ -29,7 +29,7 @@ LEARNING_RATE = 1e-4 # Default: 1e-5.
 LEARNING_RATE_SCHEDULE_PERIOD = 10 # Default: 5. 
 LEARNING_RATE_DECAY_FACTOR = 1 # Default: 1. Change it to a number within [0., 1.] to define learning rate decaying rate. 
 
-MODEL_ARXIV_DIR = "model_checkpoints"
+MODEL_ARXIV_DIR = "model_checkpoints_autoencoder"
 TRAINING_LOG_SAVEPATH = "vae_train.log"
 TRAIN_VALID_LOSS_SAVEPATH = "Train_Valid_Loss_VAE.png"
 

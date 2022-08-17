@@ -12,6 +12,8 @@ import sys
 DIR_ABS = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(DIR_ABS))
 
+from pathlib import Path
+
 import librosa
 import matplotlib.image as mig
 import matplotlib.pyplot as plt
@@ -28,9 +30,11 @@ def synchronize(audio_sample, photodiode_sample, sync_threshold=ACOUSTIC.PHOTO_S
     Cut off both the beginning and the end.  
     """
     
-    impinging_pt = np.where(photodiode_sample>=sync_threshold)[0][0]
+    impinging_pt_begin = np.where(photodiode_sample>=sync_threshold)[0][0]
+    impinging_pt_end = np.where(photodiode_sample>=sync_threshold)[0][-1]
 
-    return audio_sample[impinging_pt:], photodiode_sample[impinging_pt:]
+    return audio_sample[impinging_pt_begin:impinging_pt_end], \
+           photodiode_sample[impinging_pt_begin:impinging_pt_end]
 
 
 class STFTSpectrum(object):
@@ -165,7 +169,7 @@ class WaveletSpectrum(object):
         ax = fig.add_axes([0.,0.,1.,1.])
         extent = [-1, 1, 1, len(self.scales)+1]
         _ = ax.imshow(abs(self._coef), extent=extent, interpolation='bilinear', cmap='gray', aspect='auto',
-                        vmax=abs(self._coef).max(), vmin=-abs(self._coef).max())
+                      vmax=abs(self._coef).max(), vmin=-abs(self._coef).max())
         if self.is_log_scale: ax.set_yscale('log')
         ax.axis('off') # Turn off axis. 
         fig.canvas.draw()
@@ -185,7 +189,7 @@ class Audio(object):
     """
     """
 
-    def __init__(self, file_path=None, data=None, sr=ACOUSTIC.AUDIO_SAMPLING_RATE, omit=0.):
+    def __init__(self, file_path=None, data=None, data_label=None, sr=ACOUSTIC.AUDIO_SAMPLING_RATE, omit=0.):
         """
         """
 
@@ -193,6 +197,7 @@ class Audio(object):
         self.sampling_rate = sr
         self.omit_duration = omit # Unit: In s.
 
+        self.audio_file_name = data_label if data_label is not None else self._get_audio_name()
         self.data = data if data is not None and self.file_path is None else \
                     self._read_data_from_path()
         self.audio_len = len(self.data)
@@ -205,12 +210,26 @@ class Audio(object):
         return self.audio_len
 
 
+    def _get_audio_name(self):
+        """
+        """
+
+        if self.file_path is not None: self.audio_file_name = Path(self.file_path).stem
+        else: self.audio_file_name = "audio_0" # Default name of audio files' folder. 
+
+
     def _read_data_from_path(self):
         """
         """
 
-        if self.file_path is None: y = np.zeros(shape=(ACOUSTIC.AUDIO_CLIP_LENGTH_DP,))
-        else: y, _ = librosa.load(self.file_path, sr=self.sampling_rate, offset=self.omit_duration)
+        if self.file_path is None: raise ValueError("Audio data not found. ")
+        else: 
+            file_extension = os.path.splitext(self.file_path)[1]
+            if file_extension == ".wav": 
+                y, _ = librosa.load(self.file_path, sr=self.sampling_rate, offset=self.omit_duration)
+            elif file_extension == ".npy": 
+                y = np.load(self.file_path)
+            else: raise ValueError("Audio file format not recognizable. ")
 
         return y.reshape(-1)
 

@@ -16,7 +16,9 @@ import librosa
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mig
+import scipy.io
 
+from collections import defaultdict
 from numpy.lib.stride_tricks import sliding_window_view
 from pathlib import Path
 
@@ -25,33 +27,118 @@ from dataprocessing import *
 from files import *
 
 
+class Synchronizer(object):
+    """
+    Use photodiode data to synchronize acoustic and high-speed image data. Cut off both the beginning and the end of the acoustic data.  
+    """
+
+    def __init__(self, acoustic_data_file_path=None, acoustic_data=None, photodiode_data_file_path=None, 
+                 photodiode_data=None, sr=ACOUSTIC.AUDIO_SAMPLING_RATE, data_label=None):
+        """
+        Acoustic data must have the same sampling rate as the corresponding photodiode data. 
+        """
+
+        self._audio_sensor_No = ACOUSTIC.AUDIO_SENSOR_NO # Int. Indicate which aocustic sensor is chosen. 
+        self._photodiode_sensor_No = ACOUSTIC.PHOTODIODE_SENSOR_NO # Int. Indicate which photodiode sensor is chosen. 
+        self._photodiode_sync_thrsld = ACOUSTIC.PHOTO_SYNC_THRSLD # Float. The magnitude threshold of photodiode data. 
+
+        self.acoustic_data_filepath = acoustic_data_file_path
+        self.photodiode_data_filepath = photodiode_data_file_path
+        self.acoustic_data = acoustic_data if acoustic_data is not None else self._read_data_from_path()[0]
+        self.photodiode_data = photodiode_data if photodiode_data is not None else self._read_data_from_path()[1]
+        self.audio_sr = sr # Sampling frequency of acoustic signals.
+
+        self._audio_file_name = data_label if data_label is not None else self._get_audio_name()
+        self._acoustic_data_synced_dict = defaultdict()
+
+        self.synchronize()
+    
+
+    def _get_audio_name(self):
+        """
+        """
+
+        if self.acoustic_data_filepath is not None: self.audio_file_name = Path(self.acoustic_data_filepath).stem
+        else: self.audio_file_name = "audio_0" # Default name of audio files' folder. 
+
+
+    def _read_data_from_path(self):
+        """
+        """
+
+        if self.acoustic_data_filepath is None and self.photodiode_data_filepath is None: 
+            raise ValueError("Audio data and phodiode data not found. ")
+
+        acoustic_data, photodiode_data = None, None
+
+        if self.acoustic_data_filepath is not None: 
+            acoustic_file_extension = os.path.splitext(self.acoustic_data_filepath)[1]
+            if acoustic_file_extension == ".wav": 
+                acoustic_data, _ = librosa.load(self.acoustic_data_filepath, sr=self.audio_sr, offset=0.)
+            elif acoustic_file_extension == ".npy": 
+                acoustic_data = np.load(self.acoustic_data_filepath)
+            elif acoustic_file_extension == ".csv":
+                acoustic_data = np.genfromtxt(self.acoustic_data_filepath, delimiter=',')
+            else: raise ValueError("Audio file format not recognizable. ")
+        else: pass
+        
+        if self.photodiode_data_filepath is not None:
+            photodiode_file_extension = os.path.splitext(self.photodiode_data_filepath)[1]
+            if photodiode_file_extension == ".npy": 
+                photodiode_data = np.load(self.photodiode_data_filepath)
+            elif photodiode_file_extension == ".csv":
+                photodiode_data = np.genfromtxt(self.photodiode_data_filepath, delimiter=',')
+            else: raise ValueError("Photodiode file format not recognizable. ")
+        else: pass
+
+        return acoustic_data, photodiode_data
+
+
+    def synchronize(self, photo_sensor_No=None):
+        """
+        """
+
+        if photo_sensor_No is None: photo_sensor_No = self._photodiode_sensor_No
+
+        photodiode_sample = self.photodiode_data[photo_sensor_No,:]
+        audio_sensor_num = self.acoustic_data.shape[0]
+
+        for i in range(audio_sensor_num):
+            acoustic_sample = copy.deepcopy(self.acoustic_data[i,:])
+            acoustic_sample_synced, _ = audioBasics.synchronize(acoustic_sample, photodiode_sample, 
+                                                                sync_threshold=self._photodiode_sync_thrsld)
+            self._acoustic_data_synced_dict[i] = acoustic_sample_synced
+
+
+    def acoustic_synced_data(self, audio_sensor_No=None):
+        """
+        """
+
+        if len(self._acoustic_data_synced_dict) != 0: 
+            if audio_sensor_No is None: audio_sensor_No = self._audio_sensor_No
+            return self._acoustic_data_synced_dict[audio_sensor_No]
+        else: raise ValueError("Synchronization not implemented. ")
+
+
 class Clips(audioBasics.Audio):
     """
     """
 
-    def __init__(self, file_path=None, data=None, sr=ACOUSTIC.AUDIO_SAMPLING_RATE, omit=0.,
+    def __init__(self, file_path=None, data=None, data_label=None, sr=ACOUSTIC.AUDIO_SAMPLING_RATE, omit=0.,
                  clip_length=ACOUSTIC.AUDIO_CLIP_LENGTH_DP, clip_stride=ACOUSTIC.AUDIO_CLIP_STRIDE_DP):
-                #  is_save_offline=ACOUSTIC.IS_SAVE, clips_subdir=BASIC.ACOUSTIC_CLIPS_FOLDER_PATH,
-                #  spectrograms_subdir=BASIC.ACOUSTIC_SPECS_FOLDER_PATH):
         """
         """
 
-        super(Clips, self).__init__(file_path, data, sr, omit)
+        super(Clips, self).__init__(file_path, data, data_label, sr, omit)
         self.clip_length = clip_length
         self.clip_stride = clip_stride
-        # self.is_save_offline = is_save_offline
-        # self.clips_subdir = clips_subdir
-        # self.spectrograms_subdir = spectrograms_subdir
 
-        self._audio_file_name = None
         self._index_list = None
         self._clips_mat = None
         self._clips_num = 0
         self._spectrogram_list = []
 
-        self._get_audio_name()
         self.partition()
-        self.spectral_transform()
     
 
     @property
@@ -67,17 +154,12 @@ class Clips(audioBasics.Audio):
     def spectrograms(self):
         """
         """
+
+        if self._spectrogram_list == []: self.spectral_transform()
         
         if self._spectrogram_list != []: return self._spectrogram_list
-        else: raise ValueError("Clips not spectrally transformed. Spectrograms not generated. ")
+        else: raise ValueError("Clips not transformed to spectrums. Spectrograms not generated. ")
 
-
-    def _get_audio_name(self):
-        """
-        """
-
-        self._audio_file_name = Path(self.file_path).stem
-    
 
     def partition(self):
         """
@@ -121,15 +203,22 @@ class Clips(audioBasics.Audio):
         """
         """
 
-        save_folder_path = os.path.join(clips_subdir, self._audio_file_name)
+        save_folder_path = os.path.join(clips_subdir, self.audio_file_name)
 
         if self._clips_mat is not None and self._index_list is not None:
             if not os.path.isdir(save_folder_path): os.mkdir(save_folder_path)
 
-            for ind in range(self._clips_num):
-                save_clip_path = os.path.join(save_folder_path, "{}.{}".format(str(self._index_list[ind]).zfill(5), 
-                                                                               ACOUSTIC.CLIP_FILE_EXTENSION))
-                np.save(save_clip_path, copy.deepcopy(self._clips_mat[ind,:].reshape(-1)))
+            if ACOUSTIC.CLIP_FILE_EXTENSION == "mat":
+                mdict = {"clips_mat": self._clips_mat}
+                scipy.io.savemat(os.path.join(save_folder_path, "{}.mat".format(self.audio_file_name)), mdict)
+            else:
+                for ind in range(self._clips_num):
+                    save_clip_path = os.path.join(save_folder_path, "{}.{}".format(str(self._index_list[ind]).zfill(5), 
+                                                                                   ACOUSTIC.CLIP_FILE_EXTENSION))
+
+                    if ACOUSTIC.CLIP_FILE_EXTENSION == "npy":
+                        np.save(save_clip_path, copy.deepcopy(self._clips_mat[ind,:].reshape(-1)))
+                    else: raise ValueError("Clip file extension not well defined. ")
 
         else: raise ValueError("Clips not partitioned. ")
 
@@ -138,7 +227,7 @@ class Clips(audioBasics.Audio):
         """
         """
 
-        save_folder_path = os.path.join(spectrograms_subdir, self._audio_file_name)
+        save_folder_path = os.path.join(spectrograms_subdir, self.audio_file_name)
 
         if self._spectrogram_list != [] and self._index_list is not None:
             if not os.path.isdir(save_folder_path): os.mkdir(save_folder_path)
@@ -146,33 +235,27 @@ class Clips(audioBasics.Audio):
             for ind, spectrogram in enumerate(self._spectrogram_list):
                 save_spec_path = os.path.join(save_folder_path, "{}.{}".format(str(self._index_list[ind]).zfill(5), 
                                                                                ACOUSTIC.SPECTRUM_FIG_EXTENSION))
-                plt.imsave(save_spec_path, spectrogram, dpi=ACOUSTIC.SPECTRUM_DPI)
+                
+                if ACOUSTIC.SPECTRUM_FIG_EXTENSION == "png" or ACOUSTIC.SPECTRUM_FIG_EXTENSION == "jpg":
+                    plt.imsave(save_spec_path, spectrogram, dpi=ACOUSTIC.SPECTRUM_DPI)
+                else: raise ValueError("Spectrogram file extension not well defined. ")
 
         else: raise ValueError("Clips not spectrally transformed. Spectrograms not generated. ")
     
     
-    def save_data_offline(self, clips_subdir=BASIC.ACOUSTIC_CLIPS_FOLDER_PATH, 
-                          spectrograms_subdir=BASIC.ACOUSTIC_SPECS_FOLDER_PATH):
+    def save_data_offline(self, is_clips=False, clips_subdir=BASIC.ACOUSTIC_CLIPS_FOLDER_PATH, 
+                          is_spectrums=False, spectrograms_subdir=BASIC.ACOUSTIC_SPECS_FOLDER_PATH):
         """
         """
 
-        self._save_clips(clips_subdir)
-        self._save_spectrograms(spectrograms_subdir)
+        if is_clips: self._save_clips(clips_subdir)
+        if is_spectrums: 
+            self.spectral_transform()
+            self._save_spectrograms(spectrograms_subdir)
 
     
 if __name__ == "__main__":
     """
     """
 
-    
-    
-    clips_obj = Clips(file_path="data/raw_audio_data/Layer003_Section_01_S0001.wav", omit=0.0720)
-    if ACOUSTIC.IS_SAVE: clips_obj.save_data_offline()
-    
-    del clips_obj
-    gc.collect()
-    
-    # plt.figure(figsize=(20, 20))
-    # plt.imshow(spectrograms[0])
-    # plt.savefig('test.png', bbox_inches='tight', pad_inches=0)
-    
+    pass

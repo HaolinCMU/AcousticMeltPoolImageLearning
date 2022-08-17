@@ -17,12 +17,14 @@ import matplotlib.image as mig
 import PIL
 
 from cmath import nan
+from numpy.lib.stride_tricks import sliding_window_view
 from scipy.stats import skew, kurtosis
 from scipy.ndimage import rotate
 from torchvision import transforms
 
 from PARAM.IMG import *
 from PARAM.BASIC import *
+from PARAM.ACOUSTIC import *
 from dataprocessing import *
 from files import *
 
@@ -111,6 +113,15 @@ class Frame(imgBasics.Image):
         """
 
         return self._total_area
+
+
+    @property
+    def meltpool_aspect_ratio(self):
+        """
+        """
+
+        if not self._isMeltpool or self._meltpool_width == 0: return 0.
+        else: return self._meltpool_length / self._meltpool_width
 
 
     @property
@@ -720,8 +731,68 @@ class MeltPool(Frame):
         
         self.length = None # Float. 
         self.width = None # Float. 
+
+
+def collect_visual_data(img_dir, visual_dir, is_area=True, is_aspect_ratio=True, is_P=True, is_V=True): # Add arguments for feature types. 
+    """
+    Current feature (exact order): [ Area | Aspect ratio | P | V ]. 
+    Collect as much as possible. 
+    """
+
+    img_subfolder_list = os.listdir(img_dir)
+
+    for folder in img_subfolder_list:
+        img_subfolder_dir = os.path.join(img_dir, folder)
+        img_path_list_temp = glob.glob(os.path.join(img_subfolder_dir, "*.{}".format(IMAGE_EXTENSION)))
+
+        P_temp, V_temp = extract_process_param_fromAcousticFilename(folder)
+
+        if is_area: area_list = copy.deepcopy([])
+        if is_aspect_ratio: aspect_ratio_list = copy.deepcopy([])
+
+        print("Start processing File: {}. ".format(folder))
+        print("------------------------------")
+
+        for ind, img_path in enumerate(img_path_list_temp):
+            img_frame_temp = Frame(img_path)
+            if is_area: area_list.append(img_frame_temp.meltpool_area)
+            if is_aspect_ratio: aspect_ratio_list.append(img_frame_temp.meltpool_aspect_ratio)
+
+            if (ind + 1) % 1000 == 0 or ind + 1 == len(img_path_list_temp): 
+                print("Img: {} | {}/{} is being processed. ".format(folder, ind+1, len(img_path_list_temp)))
+
+            del img_frame_temp # Release memory. 
+
+        visual_data_mat_full = np.array([]).reshape(len(img_path_list_temp), 0)
+        if is_area: 
+            area_array = np.array(area_list).astype(float).reshape(-1,1)
+            visual_data_mat_full = np.hstack((visual_data_mat_full, area_array))
+        if is_aspect_ratio:
+            aspect_ratio_array = np.array(aspect_ratio_list).astype(float).reshape(-1,1)
+            visual_data_mat_full = np.hstack((visual_data_mat_full, aspect_ratio_array))
+        if is_P:
+            P_array = np.array([P_temp]*len(img_path_list_temp)).astype(float).reshape(-1,1)
+            visual_data_mat_full = np.hstack((visual_data_mat_full, P_array))
+        if is_V:
+            V_array = np.array([V_temp]*len(img_path_list_temp)).astype(float).reshape(-1,1)
+            visual_data_mat_full = np.hstack((visual_data_mat_full, V_array))
+
+        visual_data_block = sliding_window_view(visual_data_mat_full, # Shape: (sample_num, 1, IMAGE_WINDOW_SIZE, feature_num). 
+                                                window_shape=(IMAGE_WINDOW_SIZE, 
+                                                              visual_data_mat_full.shape[1]))[::IMAGE_STRIDE_SIZE,:,:,:]
+        visual_data_mat = np.mean(visual_data_block, axis=2).reshape(-1, visual_data_mat_full.shape[1])
+
+        visual_subfolder_dir = os.path.join(visual_dir, folder)
+        if not os.path.isdir(visual_subfolder_dir): os.mkdir(visual_subfolder_dir)
+
+        for i in range(visual_data_mat.shape[0]):
+            visual_data_path_temp = os.path.join(visual_subfolder_dir, "{}_{}.npy".format(folder, str(i).zfill(5)))
+            np.save(visual_data_path_temp, visual_data_mat[i,:])
         
-        
+        print("End of processing File: {}. ".format(folder))
+        print("##############################")
+
+
 def main():
     """
     """
