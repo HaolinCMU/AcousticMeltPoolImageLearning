@@ -48,17 +48,18 @@ CONV_HIDDEN_LAYER_NUM = 6 # 6, if `IMG_SIZE` starts from 256.
 MLP_HIDDEN_LAYER_STRUCT = [128, OUTPUT_DIM] # Default: [256, 64, OUTPUT_DIM]. 
 MLP_HIDDEN_LAYER_NUM = len(MLP_HIDDEN_LAYER_STRUCT)
 
-TRAIN_RATIO = 0.9
+TRAIN_RATIO = 0.8
 VALID_RATIO = 0.05
-TEST_RATIO = 0.05
-IS_SHUFFLE = True # Default: True. Shuffle the training and validation dataset. 
+TEST_RATIO = 0.15
+IS_SHUFFLE_IN_DATALOADER = True # Default: True. Shuffle the training and validation dataset separately. 
+IS_RANDOM_PARTITION = True
 
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 1e-4
 LEARNING_RATE_SCHEDULE_PERIOD = 10 # Default: 5. 
-LEARNING_RATE_DECAY_FACTOR = 0.8 #  Default: 1. Change it to a number within [0., 1.] to define learning rate decaying rate. 
+LEARNING_RATE_DECAY_FACTOR = 0.5 #  Default: 1. A number within [0., 1.] to define learning rate decaying rate. 
 
-BATCH_SIZE = 64 # Default: 32, If `IMG_SIZE` is 256. 
-NUM_EPOCHS = 25 # Default: 20. 
+BATCH_SIZE = 128 # Default: 32, If `IMG_SIZE` is 256. 
+NUM_EPOCHS = 40 # Default: 20. 
 LAMBDA_REGLR = 1e-5 # Default: 1e-5. 
 ACTIVATION_LAYER = nn.ReLU(inplace=True)
 LOSS_FUNC = nn.MSELoss()

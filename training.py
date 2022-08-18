@@ -895,6 +895,7 @@ class Model_Conv_2d(object):
         # Dataset & Dataloaders. 
         self.dataset = AcousticSpectrumVisualDataset(spectrum_data_dir=self.input_data_dir, 
                                                      visual_data_dir=self.output_data_dir, 
+                                                     is_random_partition=ML_2DCONV.IS_RANDOM_PARTITION, 
                                                      train_ratio=self.train_ratio, 
                                                      valid_ratio=self.valid_ratio, 
                                                      test_ratio=self.test_ratio, 
@@ -909,7 +910,7 @@ class Model_Conv_2d(object):
         self.test_loader = None # Torch.Dataloader. The loader of testing dataset. 
         self.unseen_layers_loader = None # Torch.Dataloader. The loader of unseen layers dataset. 
 
-        self.init_dataLoaders(is_shuffle=ML_2DCONV.IS_SHUFFLE) # Initialize, partition and create train, valid and test dataloaders. 
+        self.init_dataLoaders(is_shuffle=ML_2DCONV.IS_SHUFFLE_IN_DATALOADER) # Initialize, partition and create train, valid and test dataloaders. 
 
         # Learning model. 
         self.cnn2d_net = conv_2d.CNN_2D(in_channel_num=ML_2DCONV.IN_CHANNEL_NUM, 
@@ -947,7 +948,7 @@ class Model_Conv_2d(object):
             else: pass
 
 
-    def init_dataLoaders(self, is_shuffle=ML_2DCONV.IS_SHUFFLE):
+    def init_dataLoaders(self, is_shuffle=ML_2DCONV.IS_SHUFFLE_IN_DATALOADER):
         """
         """
 

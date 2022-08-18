@@ -77,7 +77,7 @@ class AcousticSpectrumVisualDataset(Dataset):
     """
     """
 
-    def __init__(self, spectrum_data_dir, visual_data_dir, dtype=torch.float32, 
+    def __init__(self, spectrum_data_dir, visual_data_dir, dtype=torch.float32, is_random_partition=True, 
                  train_ratio=0.8, valid_ratio=0.05, test_ratio=0.15, test_layer_folder_namelist=None, 
                  spectrum_extension=ACOUSTIC.SPECTRUM_FIG_EXTENSION, visual_data_extension=IMG.VISUAL_DATA_EXTENSION, 
                  input_image_transform=Compose([Resize([ML_2DCONV.IMG_SIZE,ML_2DCONV.IMG_SIZE]),ToTensor()])):
@@ -88,6 +88,7 @@ class AcousticSpectrumVisualDataset(Dataset):
         self.spectrum_dir = spectrum_data_dir
         self.visual_data_dir = visual_data_dir
         
+        self.is_random_partition = is_random_partition
         self.train_ratio = train_ratio
         self.valid_ratio = valid_ratio
         self.test_ratio = test_ratio
@@ -232,18 +233,36 @@ class AcousticSpectrumVisualDataset(Dataset):
 
     
     @staticmethod
-    def _test_valid_train_indices(dataset_size, test_ratio, valid_ratio, train_ratio, shuffle=False):
+    def _test_valid_train_indices(dataset_size, test_ratio, valid_ratio, train_ratio, 
+                                  shuffle=False, random_partition=True):
         """
         """
-        
+
+        if test_ratio + valid_ratio + train_ratio != 1.: raise ValueError("Dataset not correctly partitioned. ")
+
         clips_indices_total = list(range(dataset_size))
         if shuffle: np.random.shuffle(clips_indices_total) # Do not shuffle. 
-        split_pt_test = int(np.floor(test_ratio*dataset_size))
-        split_pt_valid = int(np.floor((test_ratio+valid_ratio)*dataset_size))
         
-        train_set_indices = clips_indices_total[split_pt_valid:]
-        valid_set_indices = clips_indices_total[split_pt_test:split_pt_valid]
-        test_set_indices = clips_indices_total[:split_pt_test]
+        if random_partition:
+            valid_size, test_size = int(valid_ratio*dataset_size), int(test_ratio*dataset_size)
+            valid_ind = np.random.randint(0, dataset_size-valid_size)
+            valid_set_indices = clips_indices_total[valid_ind:valid_ind+valid_size]
+            
+            rest_set_indices = np.concatenate((clips_indices_total[0:valid_ind], 
+                                               clips_indices_total[valid_ind+valid_size:])).astype(int)
+            test_ind = np.random.randint(0, len(rest_set_indices)-test_size)
+            test_set_indices = rest_set_indices[test_ind:test_ind+test_size]
+            
+            train_set_indices = np.concatenate((rest_set_indices[0:test_ind], 
+                                                rest_set_indices[test_ind+test_size:])).astype(int)
+
+        else: 
+            split_pt_test = int(np.floor(test_ratio*dataset_size))
+            split_pt_valid = int(np.floor((test_ratio+valid_ratio)*dataset_size))
+            
+            train_set_indices = clips_indices_total[split_pt_valid:]
+            valid_set_indices = clips_indices_total[split_pt_test:split_pt_valid]
+            test_set_indices = clips_indices_total[:split_pt_test]
         
         return test_set_indices, valid_set_indices, train_set_indices
     
@@ -265,7 +284,8 @@ class AcousticSpectrumVisualDataset(Dataset):
         
         clips_num = min(len(spectrum_pathlist), len(visual_pathlist)) # Must be the smaller number of spectrums and visuals!
         test_ind_list, valid_ind_list, train_ind_list = self._test_valid_train_indices(clips_num, test_ratio, valid_ratio, 
-                                                                                       train_ratio, shuffle=False)
+                                                                                       train_ratio, shuffle=False, 
+                                                                                       random_partition=self.is_random_partition)
         
         for test_ind in test_ind_list:
             test_dict[test_samples_accum_num] = [spectrum_pathlist[test_ind], visual_pathlist[test_ind],
@@ -319,6 +339,8 @@ class AcousticSpectrumVisualDataset(Dataset):
         self._train_set_size = copy.deepcopy(train_set_samplenum)
         self._valid_set_size = copy.deepcopy(valid_set_samplenum)
         self._test_set_size = copy.deepcopy(test_set_samplenum)
+
+        self._dataset_size = self._train_set_size + self._valid_set_size + self._test_set_size
     
     
     def subdataset(self, mode):
