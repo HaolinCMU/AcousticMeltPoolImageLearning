@@ -1,8 +1,10 @@
 close all; clear all; clc
 
 %%
-raw_audio_folder_path = 'F:/data/processed/acoustic/clips';
-spectrum_data_folder_path = 'F:/data/processed/acoustic/wavelet_spectrums_short'; % Save generated wavelet spectrums. 
+% raw_audio_folder_path = 'F:/data/processed/acoustic/clips';
+% spectrum_data_folder_path = 'F:/data/processed/acoustic/wavelet_spectrums_short'; % Save generated wavelet spectrums. 
+raw_audio_folder_path ='C:/Users/hlinl/Desktop/New folder/clips';
+spectrum_data_folder_path = 'C:/Users/hlinl/Desktop/New folder/wavelet_spectrums_short';
 clips_folder_list = dir(fullfile(raw_audio_folder_path));
 
 fs = 100e3; % Sampling rate; 

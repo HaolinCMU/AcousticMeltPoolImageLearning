@@ -122,6 +122,9 @@ if __name__ == "__main__":
                         help="The (initial) learning rate of training for conv_2d. ")
     parser.add_argument("--cnn2d_num_epochs", default=ML_2DCONV.NUM_EPOCHS, type=int, 
                         help="The epoch numbers of training for conv_2d. ")
+    parser.add_argument("--cnn2d_loss_plot_savepath", default=ML_2DCONV.TRAIN_VALID_LOSS_SAVEPATH, type=str, 
+                        help="The save path for conv_2d loss plot. ")
+                        
 
     args = parser.parse_args()
 
@@ -253,7 +256,12 @@ if __name__ == "__main__":
 
     # Visual data processing. 
     if VISUAL_DATA_PROCESSING_TOKEN:
-        collect_visual_data(img_dir=args.img_data_subdir, visual_dir=args.visual_data_subdir)
+        collect_visual_data(img_dir=args.img_data_subdir, visual_dir=args.visual_data_subdir, 
+                            featurization_mode=IMG.VISUAL_DATA_FEATURIZATION_MODE)
+        visual_mean_vect, visual_std_vect = visual_data_standard(visual_dir=args.visual_data_subdir)
+
+        np.save("visual_mean_vect.npy", visual_mean_vect)
+        np.save("visual_std_vect.npy", visual_std_vect)
 
     ####################################################################################################################
 
@@ -265,7 +273,7 @@ if __name__ == "__main__":
                                         num_epochs=args.cnn2d_num_epochs)
 
             cnn2d_model.train() # Train the model. 
-            cnn2d_model.loss_plot() # Plot Train & Valid Loss. 
+            cnn2d_model.loss_plot(save_path=args.cnn2d_loss_plot_savepath) # Plot Train & Valid Loss. 
 
             # In-situ evaluation. Test on outside dataset should be implemented separately. 
             # Validation & data saving process takes roughly 10 mins. 
@@ -292,4 +300,6 @@ if __name__ == "__main__":
             np.save("loss_list_unseen.npy", loss_list_unseen)
             np.save("groundtruths_list_unseen.npy", groundtruths_list_unseen)
             np.save("generations_list_unseen.npy", generations_list_unseen)
+        
+        else: pass
 

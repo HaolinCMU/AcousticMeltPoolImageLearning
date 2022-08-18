@@ -61,7 +61,7 @@ class CNN_2D(nn.Module):
         """
 
         if self._conv_net is not None: return self._conv_net
-        else: raise ValueError("Conv. net not created. ")
+        else: raise ValueError("Convolution net not created. ")
     
 
     @property
@@ -131,9 +131,7 @@ class CNN_2D(nn.Module):
                                                           conv_stride=ML_2DCONV.CONV_STRIDE_SIZE)
 
             if i != self.conv_hidden_layer_num - 1:
-                architecture_pre_module.append(ML_2DCONV.POOLING_LAYER(ML_2DCONV.POOLING_KERNEL_SIZE, 
-                                                                       stride=ML_2DCONV.POOLING_STRIDE_SIZE, 
-                                                                       padding=ML_2DCONV.POOLING_PADDING_SIZE))
+                architecture_pre_module.append(ML_2DCONV.POOLING_LAYER)
                 output_img_dim_temp = self._after_pool_img_dim(after_conv_img_dim, 
                                                                pool_kernel_size=ML_2DCONV.POOLING_KERNEL_SIZE, 
                                                                pool_padding=ML_2DCONV.POOLING_PADDING_SIZE, 

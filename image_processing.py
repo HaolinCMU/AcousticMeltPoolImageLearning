@@ -733,7 +733,8 @@ class MeltPool(Frame):
         self.width = None # Float. 
 
 
-def collect_visual_data(img_dir, visual_dir, is_area=True, is_aspect_ratio=True, is_P=True, is_V=True): # Add arguments for feature types. 
+def collect_visual_data(img_dir, visual_dir, featurization_mode='median',
+                        is_area=True, is_aspect_ratio=True, is_P=True, is_V=True): # Add arguments for feature types. 
     """
     Current feature (exact order): [ Area | Aspect ratio | P | V ]. 
     Collect as much as possible. 
@@ -777,20 +778,56 @@ def collect_visual_data(img_dir, visual_dir, is_area=True, is_aspect_ratio=True,
             V_array = np.array([V_temp]*len(img_path_list_temp)).astype(float).reshape(-1,1)
             visual_data_mat_full = np.hstack((visual_data_mat_full, V_array))
 
+        ###: Sliding window.
         visual_data_block = sliding_window_view(visual_data_mat_full, # Shape: (sample_num, 1, IMAGE_WINDOW_SIZE, feature_num). 
                                                 window_shape=(IMAGE_WINDOW_SIZE, 
                                                               visual_data_mat_full.shape[1]))[::IMAGE_STRIDE_SIZE,:,:,:]
-        visual_data_mat = np.mean(visual_data_block, axis=2).reshape(-1, visual_data_mat_full.shape[1])
+        if featurization_mode == 'mean': 
+            visual_data_mat = np.mean(visual_data_block, axis=2).reshape(-1, visual_data_mat_full.shape[1]) # Mean value. 
+        elif featurization_mode == 'median':
+            visual_data_mat = np.median(visual_data_block, axis=2).reshape(-1, visual_data_mat_full.shape[1]) # Median value. 
+        else: raise ValueError("Featurization mode not interpretable. ")
 
         visual_subfolder_dir = os.path.join(visual_dir, folder)
         if not os.path.isdir(visual_subfolder_dir): os.mkdir(visual_subfolder_dir)
 
         for i in range(visual_data_mat.shape[0]):
-            visual_data_path_temp = os.path.join(visual_subfolder_dir, "{}_{}.npy".format(folder, str(i).zfill(5)))
+            visual_data_path_temp = os.path.join(visual_subfolder_dir, "{}_{}.{}".format(folder, str(i).zfill(5), 
+                                                                                         IMG.VISUAL_DATA_EXTENSION))
             np.save(visual_data_path_temp, visual_data_mat[i,:])
         
         print("End of processing File: {}. ".format(folder))
         print("##############################")
+
+
+def visual_data_standard(visual_dir):
+    """
+    """
+
+    visual_data_subfolder_list = os.listdir(visual_dir)
+    visual_data_pathlist_total, visual_data_mat_total = [], None
+
+    for subfolder_ind, visual_data_subfolder in enumerate(visual_data_subfolder_list):
+        visual_data_pathlist_temp = glob.glob(os.path.join(visual_dir, visual_data_subfolder, 
+                                                           "*.{}".format(IMG.VISUAL_DATA_EXTENSION)))
+
+        for path_ind, visual_data_path in enumerate(visual_data_pathlist_temp):
+            visual_data_pathlist_total.append(visual_data_path)
+            visual_data_temp = np.load(visual_data_path).reshape(1, -1)
+
+            if subfolder_ind == 0 and path_ind == 0: visual_data_mat_total = copy.deepcopy(visual_data_temp)
+            else: visual_data_mat_total = np.vstack((visual_data_mat_total, visual_data_temp))
+    
+    visual_mean, visual_std = np.mean(visual_data_mat_total, axis=0), np.std(visual_data_mat_total, axis=0)
+    visual_data_mat_standard = utility.standardization(visual_data_mat_total, axis=0, 
+                                                       mean_vect=visual_mean, std_vect=visual_std)
+
+    if len(visual_data_pathlist_total) != visual_data_mat_standard.shape[0]: raise ValueError("Implementation error. ")
+    else: visual_data_num_total = len(visual_data_pathlist_total)
+
+    for i in range(visual_data_num_total): np.save(visual_data_pathlist_total[i], visual_data_mat_standard[i,:])
+
+    return visual_mean, visual_std
 
 
 def main():

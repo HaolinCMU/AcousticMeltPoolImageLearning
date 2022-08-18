@@ -34,7 +34,7 @@ class ACVD_SubDataset(Dataset):
     """
     
     def __init__(self, dataset_dict=None, dtype=torch.float32, 
-                 input_img_transform=Compose([Resize(ML_2DCONV.IMG_SIZE),ToTensor()])):
+                 input_img_transform=Compose([Resize([ML_2DCONV.IMG_SIZE,ML_2DCONV.IMG_SIZE]),ToTensor()])):
         """
         """
         
@@ -61,7 +61,10 @@ class ACVD_SubDataset(Dataset):
             if len(self.dataset) == 0: raise ValueError("No data is found in the data dictionary. ")
 
             input_img = PIL.Image.fromarray(np.uint8(mig.imread(self.dataset[ind][0])*255)) # Read spectrum from a path.
-            output_label = torch.from_numpy(np.load(self.dataset[ind][1]).reshape(-1)).to(self.dtype) # Read label vector from a path.
+            
+            visual_data_full = np.load(self.dataset[ind][1]).reshape(-1)
+            label_array = np.array([visual_data_full[i] for i in ML_2DCONV.VISUAL_FEATURE_LIST]).reshape(-1)
+            output_label = torch.from_numpy(label_array).to(self.dtype) # Read label vector from a path.
             
             if self.input_img_transform:
                 input_img = copy.deepcopy(self.input_img_transform(input_img).to(self.dtype)) # Transformed tensor of prescribed data type. [c, h, w]. 
@@ -76,8 +79,8 @@ class AcousticSpectrumVisualDataset(Dataset):
 
     def __init__(self, spectrum_data_dir, visual_data_dir, dtype=torch.float32, 
                  train_ratio=0.8, valid_ratio=0.05, test_ratio=0.15, test_layer_folder_namelist=None, 
-                 spectrum_extension=ACOUSTIC.SPECTRUM_FIG_EXTENSION, visual_data_extension="npy", 
-                 input_image_transform=Compose([Resize(ML_2DCONV.IMG_SIZE),ToTensor()])):
+                 spectrum_extension=ACOUSTIC.SPECTRUM_FIG_EXTENSION, visual_data_extension=IMG.VISUAL_DATA_EXTENSION, 
+                 input_image_transform=Compose([Resize([ML_2DCONV.IMG_SIZE,ML_2DCONV.IMG_SIZE]),ToTensor()])):
         """
         `spectrum_data_dir` and `visual_data_dir` must have the same inner data structure. 
         """

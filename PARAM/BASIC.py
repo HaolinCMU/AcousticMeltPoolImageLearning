@@ -40,8 +40,6 @@ HU_MOMENTS_FEATURE_IND_LIST = [0,1,2,3,4,5,6] # Must be sorted.
 
 
 
-
-
 #### OLD DATA ####
 
 # # DATA INFORMATION

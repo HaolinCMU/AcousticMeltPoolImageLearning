@@ -65,7 +65,10 @@ def normalization(data_matrix, axis, mode='unitize'):
 
 def standardization(matrix, axis, mean_vect, std_vect):
     """
+    `mean_vect` and `std_vect` must be 1d array. 
     """
+
+    std_vect = np.where(std_vect==0., 1e-5, std_vect) # Replace 0 with a small number to avoid numerical issue. 
     
     if axis == 1: matrix_standardized = copy.deepcopy(matrix.T)
     else: matrix_standardized = copy.deepcopy(matrix)
@@ -74,6 +77,20 @@ def standardization(matrix, axis, mean_vect, std_vect):
 
     if axis == 1: return matrix_standardized.T
     else: return matrix_standardized
+
+
+def de_standardization(matrix, axis, mean_vect, std_vect):
+    """
+    `mean_vect` and `std_vect` must be 1d array. 
+    """
+
+    if axis == 1: matrix_de_standardized = copy.deepcopy(matrix.T)
+    else: matrix_de_standardized = copy.deepcopy(matrix)
+
+    matrix_de_standardized = matrix_de_standardized * std_vect + mean_vect
+
+    if axis == 1: return matrix_de_standardized.T
+    else: return matrix_de_standardized
 
 
 def eigenDecomposition(square_matrix):

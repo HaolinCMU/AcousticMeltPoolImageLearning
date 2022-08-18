@@ -345,14 +345,20 @@ class Model_VAE(object):
         """
         """
 
-        epochs_ind_array = np.arange(self.num_epochs, step=1)
-        train_batch_ind_array = np.arange(self.num_epochs, step=1./len(self.train_loader))
-        valid_batch_ind_array = np.arange(self.num_epochs, step=1./len(self.valid_loader))
+        np.save("epoch_loss_list_train.npy", self.epoch_loss_list_train)
+        np.save("epoch_loss_list_valid.npy", self.epoch_loss_list_valid)
+        np.save("batch_loss_list_train.npy", self.batch_loss_list_train)
+        np.save("batch_loss_list_valid.npy", self.batch_loss_list_valid)
 
         epoch_loss_train_array = np.log(np.array(self.epoch_loss_list_train).astype(float).reshape(-1))
         epoch_loss_valid_array = np.log(np.array(self.epoch_loss_list_valid).astype(float).reshape(-1))
+        train_epochs_ind_array = np.linspace(0, self.num_epochs, num=len(epoch_loss_train_array))
+        valid_epochs_ind_array = np.linspace(0, self.num_epochs, num=len(epoch_loss_valid_array))
+
         batch_loss_train_array = np.log(np.array(self.batch_loss_list_train).astype(float).reshape(-1))
         batch_loss_valid_array = np.log(np.array(self.batch_loss_list_valid).astype(float).reshape(-1))
+        train_batch_ind_array = np.linspace(0, self.num_epochs, num=len(batch_loss_train_array))
+        valid_batch_ind_array = np.linspace(0, self.num_epochs, num=len(batch_loss_valid_array))
 
         plt.figure(figsize=(20,20))
         plt.rcParams.update({"font.size": 35})
@@ -361,9 +367,9 @@ class Model_VAE(object):
                           color='blue', linewidth=10.0, alpha=0.3, label="Train Loss (log) - Batch")
         line2, = plt.plot(valid_batch_ind_array, batch_loss_valid_array, 
                           color='orange', linewidth=10.0, alpha=0.3, label="Valid Loss (log) - Batch")
-        line3, = plt.plot(epochs_ind_array, epoch_loss_train_array, 
+        line3, = plt.plot(train_epochs_ind_array, epoch_loss_train_array, 
                           color='blue', linewidth=3.0, label="Train Loss (log) - Epoch")
-        line4, = plt.plot(epochs_ind_array, epoch_loss_valid_array, 
+        line4, = plt.plot(valid_epochs_ind_array, epoch_loss_valid_array, 
                           color='orange', linewidth=3.0, label="Valid Loss (log) - Epoch")
         plt.xlabel("Epochs", fontsize=40)
         plt.ylabel("log(Loss)", fontsize=40)
@@ -903,7 +909,7 @@ class Model_Conv_2d(object):
         self.test_loader = None # Torch.Dataloader. The loader of testing dataset. 
         self.unseen_layers_loader = None # Torch.Dataloader. The loader of unseen layers dataset. 
 
-        self.init_dataLoaders() # Initialize, partition and create train, valid and test dataloaders. 
+        self.init_dataLoaders(is_shuffle=ML_2DCONV.IS_SHUFFLE) # Initialize, partition and create train, valid and test dataloaders. 
 
         # Learning model. 
         self.cnn2d_net = conv_2d.CNN_2D(in_channel_num=ML_2DCONV.IN_CHANNEL_NUM, 
@@ -941,7 +947,7 @@ class Model_Conv_2d(object):
             else: pass
 
 
-    def init_dataLoaders(self):
+    def init_dataLoaders(self, is_shuffle=ML_2DCONV.IS_SHUFFLE):
         """
         """
 
@@ -950,7 +956,9 @@ class Model_Conv_2d(object):
 
         else:
             train_set_indices = [i for i in range(len(self._train_set))]
+            if is_shuffle: np.random.shuffle(train_set_indices)
             valid_set_indices = [i for i in range(len(self._valid_set))]
+            if is_shuffle: np.random.shuffle(valid_set_indices)
             test_set_indices = [i for i in range(len(self._test_set))]
             unseen_layers_set_indices = [i for i in range(len(self._unseen_layers_set))] # Order of specified unseen layers' images and visual features. 
 
@@ -962,7 +970,8 @@ class Model_Conv_2d(object):
             self.train_loader = torch.utils.data.DataLoader(self._train_set, batch_size=self.batch_size, sampler=train_set_sampler)
             self.valid_loader = torch.utils.data.DataLoader(self._valid_set, batch_size=self.batch_size, sampler=valid_set_sampler)
             self.test_loader = torch.utils.data.DataLoader(self._test_set, sampler=test_set_sampler)
-            self.unseen_layers_loader = torch.utils.data.DataLoader(self._unseen_layers_set, sampler=unseen_layers_set_sampler)
+            if len(self.test_layer_folder_namelist) != 0 or self.test_layer_folder_namelist is not None: 
+                self.unseen_layers_loader = torch.utils.data.DataLoader(self._unseen_layers_set, sampler=unseen_layers_set_sampler)
 
 
     def train(self):
@@ -1096,19 +1105,25 @@ class Model_Conv_2d(object):
             return loss_list, groundtruths_list, generations_list
 
     
-    def loss_plot(self):
+    def loss_plot(self, save_path=ML_2DCONV.TRAIN_VALID_LOSS_SAVEPATH):
         """
         """
 
-        epochs_ind_array = np.arange(self.num_epochs, step=1)
-        train_batch_ind_array = np.arange(self.num_epochs, step=1./len(self.train_loader))
-        valid_batch_ind_array = np.arange(self.num_epochs, step=1./len(self.valid_loader))
+        np.save("epoch_loss_list_train.npy", self.epoch_loss_list_train)
+        np.save("epoch_loss_list_valid.npy", self.epoch_loss_list_valid)
+        np.save("batch_loss_list_train.npy", self.batch_loss_list_train)
+        np.save("batch_loss_list_valid.npy", self.batch_loss_list_valid)
 
         epoch_loss_train_array = np.log(np.array(self.epoch_loss_list_train).astype(float).reshape(-1))
         epoch_loss_valid_array = np.log(np.array(self.epoch_loss_list_valid).astype(float).reshape(-1))
+        train_epochs_ind_array = np.linspace(0, self.num_epochs, num=len(epoch_loss_train_array))
+        valid_epochs_ind_array = np.linspace(0, self.num_epochs, num=len(epoch_loss_valid_array))
+
         batch_loss_train_array = np.log(np.array(self.batch_loss_list_train).astype(float).reshape(-1))
         batch_loss_valid_array = np.log(np.array(self.batch_loss_list_valid).astype(float).reshape(-1))
-
+        train_batch_ind_array = np.linspace(0, self.num_epochs, num=len(batch_loss_train_array))
+        valid_batch_ind_array = np.linspace(0, self.num_epochs, num=len(batch_loss_valid_array))
+        
         plt.figure(figsize=(20,20))
         plt.rcParams.update({"font.size": 35})
         plt.tick_params(labelsize=35)
@@ -1116,9 +1131,9 @@ class Model_Conv_2d(object):
                           color='blue', linewidth=10.0, alpha=0.3, label="Train Loss (log) - Batch")
         line2, = plt.plot(valid_batch_ind_array, batch_loss_valid_array, 
                           color='orange', linewidth=10.0, alpha=0.3, label="Valid Loss (log) - Batch")
-        line3, = plt.plot(epochs_ind_array, epoch_loss_train_array, 
+        line3, = plt.plot(train_epochs_ind_array, epoch_loss_train_array, 
                           color='blue', linewidth=3.0, label="Train Loss (log) - Epoch")
-        line4, = plt.plot(epochs_ind_array, epoch_loss_valid_array, 
+        line4, = plt.plot(valid_epochs_ind_array, epoch_loss_valid_array, 
                           color='orange', linewidth=3.0, label="Valid Loss (log) - Epoch")
         plt.xlabel("Epochs", fontsize=40)
         plt.ylabel("log(Loss)", fontsize=40)
@@ -1127,7 +1142,7 @@ class Model_Conv_2d(object):
                                                "Train Loss (log) - Epoch", 
                                                "Valid Loss (log) - Epoch",], prop={"size": 40})
         plt.title("Train & Valid Loss v/s Epochs")
-        plt.savefig("Train_Valid_Loss_VAE.png")
+        plt.savefig(save_path)
 
 
     @property
