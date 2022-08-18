@@ -162,8 +162,10 @@ class CNN_2D(nn.Module):
                 output_dim_temp = self.mlp_hidden_layer_struct[i]
 
             architecture_pre_module.append(nn.Linear(in_dim_temp, output_dim_temp))
-            # architecture_pre_module.append(nn.Dropout(0.5)) # Dropout layer. 
-            if i != self.mlp_hidden_layer_num - 1: architecture_pre_module.append(ML_2DCONV.ACTIVATION_LAYER)
+            
+            if i != self.mlp_hidden_layer_num - 1: 
+                architecture_pre_module.append(ML_2DCONV.ACTIVATION_LAYER)
+                architecture_pre_module.append(nn.Dropout(0.5)) # Dropout layer. 
         
         self._mlp_net = nn.Sequential(*architecture_pre_module)
 
@@ -178,5 +180,15 @@ class CNN_2D(nn.Module):
             conv_out_dim = self._conv_block()
             if self._is_mlp_net: self._mlp_block(conv_out_dim)
         else: pass
+
+
+if __name__ == "__main__":
+    """
+    """
+
+    conv2d_net = CNN_2D(in_channel_num=3, output_dim=1, conv_hidden_layer_num=6, mlp_hidden_layer_struct=[128, 1])
+    print(conv2d_net)
+    pytorch_total_params = sum(p.numel() for p in conv2d_net.parameters() if p.requires_grad)
+    print(pytorch_total_params)
 
 

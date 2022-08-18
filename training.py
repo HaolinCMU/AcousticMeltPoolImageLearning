@@ -978,6 +978,8 @@ class Model_Conv_2d(object):
         """
         """
 
+        print(self.cnn2d_net) # Print out neural network architecture. 
+
         if not os.path.isdir(self.model_arxiv_dir): os.mkdir(self.model_arxiv_dir)
         clr_dir(self.model_arxiv_dir) # Clear the directory of pre-saved trained models before starting a new batch of training. 
 

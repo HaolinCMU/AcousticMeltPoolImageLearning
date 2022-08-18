@@ -237,7 +237,7 @@ class AcousticSpectrumVisualDataset(Dataset):
         """
         
         clips_indices_total = list(range(dataset_size))
-        if shuffle: np.random.shuffle(clips_indices_total)
+        if shuffle: np.random.shuffle(clips_indices_total) # Do not shuffle. 
         split_pt_test = int(np.floor(test_ratio*dataset_size))
         split_pt_valid = int(np.floor((test_ratio+valid_ratio)*dataset_size))
         
