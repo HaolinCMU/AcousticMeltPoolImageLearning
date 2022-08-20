@@ -12,7 +12,7 @@ import scipy.io
 from numpy.lib.stride_tricks import sliding_window_view
 
 
-def synchronize(audio_sample, photodiode_sample, sync_threshold=0.05):
+def synchronize(audio_sample, photodiode_sample, sync_threshold=0.2):
     """
     Synchronize acoustic data with high-speed image data using photodiode.
     Cut off both the beginning and the end.  

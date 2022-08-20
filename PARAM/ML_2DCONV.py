@@ -49,8 +49,8 @@ MLP_HIDDEN_LAYER_STRUCT = [128, OUTPUT_DIM] # Default: [256, 64, OUTPUT_DIM].
 MLP_HIDDEN_LAYER_NUM = len(MLP_HIDDEN_LAYER_STRUCT)
 
 TRAIN_RATIO = 0.8
-VALID_RATIO = 0.05
-TEST_RATIO = 0.15
+VALID_RATIO = 0.1
+TEST_RATIO = 0.1
 IS_SHUFFLE_IN_DATALOADER = True # Default: True. Shuffle the training and validation dataset separately. 
 IS_RANDOM_PARTITION = True
 
@@ -64,4 +64,4 @@ LAMBDA_REGLR = 1e-5 # Default: 1e-5.
 ACTIVATION_LAYER = nn.ReLU(inplace=True)
 LOSS_FUNC = nn.MSELoss()
 
-MODEL_CHECKPOINT_EPOCH_NUM = 5 # The epoch number for periodically archiving the intermediate 'checkpoint' models. Default: 5. 
+MODEL_CHECKPOINT_EPOCH_NUM = 1 # The epoch number for periodically archiving the intermediate 'checkpoint' models. Default: 5. 

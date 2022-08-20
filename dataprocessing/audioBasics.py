@@ -24,16 +24,19 @@ import scipy
 from PARAM import *
 
 
-def synchronize(audio_sample, photodiode_sample, sync_threshold=ACOUSTIC.PHOTO_SYNC_THRSLD):
+def synchronize(audio_sample, photodiode_sample, sr, sync_threshold=(0.2, 0.05), acoustic_delay_duration=0.):
     """
     Synchronize acoustic data with high-speed image data using photodiode.
-    Cut off both the beginning and the end.  
+    Cut off both the beginning and the end. 
+    `acoustic_delay_duration`: Since acoustic data is synced with high-speed by photodiode data, there will be a short delay in the collected acoustic signal, depending on the location of the acoustic sensor in the machine. Unit: s. 
     """
-    
-    impinging_pt_begin = np.where(photodiode_sample>=sync_threshold)[0][0]
-    impinging_pt_end = np.where(photodiode_sample>=sync_threshold)[0][-1]
 
-    return audio_sample[impinging_pt_begin:impinging_pt_end], \
+    acoustic_delay_inDP = int(sr*acoustic_delay_duration)
+    
+    impinging_pt_begin = np.where(photodiode_sample>=sync_threshold[0])[0][0]
+    impinging_pt_end = np.where(photodiode_sample>=sync_threshold[1])[0][-1]
+
+    return audio_sample[impinging_pt_begin+acoustic_delay_inDP:impinging_pt_end+acoustic_delay_inDP], \
            photodiode_sample[impinging_pt_begin:impinging_pt_end]
 
 

@@ -12,7 +12,7 @@ from sklearn.metrics import r2_score
 from sklearn.metrics import confusion_matrix
 
 
-def val_to_label(data, thrsld_1=200, thrsld_2=900):
+def val_to_label(data, thrsld_1=200, thrsld_2=700):
     """
     """
     
@@ -25,8 +25,8 @@ def val_to_label(data, thrsld_1=200, thrsld_2=900):
 
 #######################################################
 
-generations_list_test = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/generations_list_test.npy')
-groundtruths_list_test = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/groundtruths_list_test.npy')
+generations_list_test = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/result/conv_2d/3_08192022_img_256_bs_128_lr_1e-4/generations_list_test.npy')
+groundtruths_list_test = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/result/conv_2d/3_08192022_img_256_bs_128_lr_1e-4/groundtruths_list_test.npy')
 
 generations_label_test = val_to_label(generations_list_test)
 groundtruths_label_test = val_to_label(groundtruths_list_test)
@@ -41,8 +41,8 @@ plt.title("Test dataset R2 plot")
 
 #######################################################
 
-generations_list_unseen = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/generations_list_unseen.npy')
-groundtruths_list_unseen = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/groundtruths_list_unseen.npy')
+generations_list_unseen = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/result/conv_2d/3_08192022_img_256_bs_128_lr_1e-4/generations_list_unseen.npy')
+groundtruths_list_unseen = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/result/conv_2d/3_08192022_img_256_bs_128_lr_1e-4/groundtruths_list_unseen.npy')
 
 generations_label_unseen = val_to_label(generations_list_unseen)
 groundtruths_label_unseen = val_to_label(groundtruths_list_unseen)
@@ -62,8 +62,8 @@ plt.title("Unseen full-layer dataset consecutive plot")
 
 #######################################################
 
-generations_list_train = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/generations_list_train.npy')
-groundtruths_list_train = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/groundtruths_list_train.npy')
+generations_list_train = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/result/conv_2d/3_08192022_img_256_bs_128_lr_1e-4/generations_list_train.npy')
+groundtruths_list_train = np.load('C:/Users/hlinl/Desktop/acoustic_image_learning/result/conv_2d/3_08192022_img_256_bs_128_lr_1e-4/groundtruths_list_train.npy')
 
 generations_label_train = val_to_label(generations_list_train)
 groundtruths_label_train = val_to_label(groundtruths_list_train)

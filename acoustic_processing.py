@@ -33,20 +33,24 @@ class Synchronizer(object):
     """
 
     def __init__(self, acoustic_data_file_path=None, acoustic_data=None, photodiode_data_file_path=None, 
-                 photodiode_data=None, sr=ACOUSTIC.AUDIO_SAMPLING_RATE, data_label=None):
+                 photodiode_data=None, data_label=None, sr=ACOUSTIC.AUDIO_SAMPLING_RATE, 
+                 photodiode_sync_thrsld=ACOUSTIC.PHOTO_SYNC_THRSLD, 
+                 acoustic_delay_duration=ACOUSTIC.ACOUSTIC_DELAY_DURATION):
         """
         Acoustic data must have the same sampling rate as the corresponding photodiode data. 
+        `acoustic_delay_duration`: Since acoustic data is synced with high-speed by photodiode data, there will be a short delay in the collected acoustic signal, depending on the location of the acoustic sensor in the machine. Unit: s. 
         """
 
         self._audio_sensor_No = ACOUSTIC.AUDIO_SENSOR_NO # Int. Indicate which aocustic sensor is chosen. 
         self._photodiode_sensor_No = ACOUSTIC.PHOTODIODE_SENSOR_NO # Int. Indicate which photodiode sensor is chosen. 
-        self._photodiode_sync_thrsld = ACOUSTIC.PHOTO_SYNC_THRSLD # Float. The magnitude threshold of photodiode data. 
+        self._photodiode_sync_thrsld = photodiode_sync_thrsld # Tuple of Float. The head and end magnitude threshold of photodiode data. 
 
         self.acoustic_data_filepath = acoustic_data_file_path
         self.photodiode_data_filepath = photodiode_data_file_path
         self.acoustic_data = acoustic_data if acoustic_data is not None else self._read_data_from_path()[0]
         self.photodiode_data = photodiode_data if photodiode_data is not None else self._read_data_from_path()[1]
         self.audio_sr = sr # Sampling frequency of acoustic signals.
+        self.acoustic_delay_duration = acoustic_delay_duration
 
         self._audio_file_name = data_label if data_label is not None else self._get_audio_name()
         self._acoustic_data_synced_dict = defaultdict()
@@ -105,8 +109,9 @@ class Synchronizer(object):
 
         for i in range(audio_sensor_num):
             acoustic_sample = copy.deepcopy(self.acoustic_data[i,:])
-            acoustic_sample_synced, _ = audioBasics.synchronize(acoustic_sample, photodiode_sample, 
-                                                                sync_threshold=self._photodiode_sync_thrsld)
+            acoustic_sample_synced, _ = audioBasics.synchronize(acoustic_sample, photodiode_sample, sr=self.audio_sr, 
+                                                                sync_threshold=self._photodiode_sync_thrsld,
+                                                                acoustic_delay_duration=self.acoustic_delay_duration)
             self._acoustic_data_synced_dict[i] = acoustic_sample_synced
 
 

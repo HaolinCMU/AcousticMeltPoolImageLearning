@@ -1,22 +1,21 @@
 close all; clear all; clc
 
 %%
-% raw_audio_folder_path = 'F:/data/processed/acoustic/clips';
-% spectrum_data_folder_path = 'F:/data/processed/acoustic/wavelet_spectrums_short'; % Save generated wavelet spectrums. 
-raw_audio_folder_path ='C:/Users/hlinl/Desktop/New folder/clips';
-spectrum_data_folder_path = 'C:/Users/hlinl/Desktop/New folder/wavelet_spectrums_short';
+raw_audio_folder_path = 'F:/data/processed/acoustic/clips';
+spectrum_data_folder_path = 'F:/data/processed/acoustic/wavelet_spectrums_short'; % Save generated wavelet spectrums. 
 clips_folder_list = dir(fullfile(raw_audio_folder_path));
 
 fs = 100e3; % Sampling rate; 
 
 wavelet = 'amor'; % Default: 'amor' or 'bump'. 
-fig_resolution = 300; % dpi. Default: 300.
-colorbar_lim = [0 0.03]; % Default: [0 0.03]. Must keep consistent throughout the wavelet spectrogram graph generation. 
+fig_resolution = 600; % dpi. Default: 300.
+colorbar_lim = [0 0.025]; % Default: [0 0.03]. Must keep consistent throughout the wavelet spectrogram graph generation. 
 
 is_filter_bank = 0; % Default: 0. 
-is_log_scale = 1; % Default: 0. 
+is_log_scale = 1; % Default: 1. 
 is_multiview = 0; % Default: 0. 
 is_colorbar = 0; % Default: 0. 
+is_colorbar_fixed = 1; % Default: 1. 
 
 
 %%
@@ -43,7 +42,7 @@ parfor i = 1:length(clips_folder_list)
 
         CWT(clip_temp, wavelet, fs, fig_resolution, file_name, ...
             is_filter_bank, is_log_scale, is_multiview, ...
-            is_colorbar, colorbar_lim);
+            is_colorbar, is_colorbar_fixed, colorbar_lim);
     end
 
     clips_mat = []; % Release memory. 
@@ -56,7 +55,7 @@ delete(poolobj);
 function partitionAndCWTtoFolder(data, window_length, stride, fs, wavelet, ...
                                  fig_resolution, result_folder_path, ...
                                  is_filter_bank, is_log_scale, is_multiview, ...
-                                 is_colorbar, colorbar_lim)
+                                 is_colorbar, is_colorbar_fixed, colorbar_lim)
     %{
     Partition the input data with specified window length, stride, and
     generate corresponding individual wavelet power spectrums using
@@ -88,7 +87,7 @@ function partitionAndCWTtoFolder(data, window_length, stride, fs, wavelet, ...
         CWT(clip_temp, wavelet, fs, fig_resolution, ...
             sprintf('%s/%06d.png', result_folder_path, i-1), ...
             is_filter_bank, is_log_scale, is_multiview, ...
-            is_colorbar, colorbar_lim);
+            is_colorbar, is_colorbar_fixed, colorbar_lim);
 
         clear clip_temp;
     end
@@ -98,7 +97,7 @@ end
 
 function CWT(data, wavelet, fs, fig_resolution, file_name, ...
              is_filter_bank, is_log_scale, is_multiview, ...
-             is_colorbar, colorbar_lim)
+             is_colorbar, is_colorbar_fixed, colorbar_lim)
     %{
     Create a single continuous wavelet transform power spectrum. 
 
@@ -142,10 +141,14 @@ function CWT(data, wavelet, fs, fig_resolution, file_name, ...
 
         if ~is_colorbar
             set(colorbar, 'visible', 'off');
-            caxis(colorbar_lim);
+            if is_colorbar_fixed
+                caxis(colorbar_lim);
+            end
         else
             set(colorbar);
-            caxis(colorbar_lim);
+            if is_colorbar_fixed
+                caxis(colorbar_lim);
+            end
         end
 
         ExportGraph(f, file_name, fig_resolution);
@@ -161,7 +164,7 @@ function CWT(data, wavelet, fs, fig_resolution, file_name, ...
         f1 = subplot(2,1,1);
         plot(t, data);
         axis tight;
-        ylim(f1, [-0.25 0.1]);
+        ylim(f1, [-0.3 0.3]);
         title("Signal and Scalogram");
         xlabel("Time (s)");
         ylabel("Amplitude");
@@ -179,10 +182,14 @@ function CWT(data, wavelet, fs, fig_resolution, file_name, ...
 
         if ~is_colorbar
             set(colorbar, 'visible', 'off');
-            caxis(colorbar_lim);
+            if is_colorbar_fixed
+                caxis(colorbar_lim);
+            end
         else
             set(colorbar);
-            caxis(colorbar_lim);
+            if is_colorbar_fixed
+                caxis(colorbar_lim);
+            end
         end
         
         ExportGraph(f, file_name, fig_resolution);
