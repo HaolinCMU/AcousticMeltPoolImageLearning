@@ -53,7 +53,7 @@ class Synchronizer(object):
         self.acoustic_delay_duration = acoustic_delay_duration
 
         self._audio_file_name = data_label if data_label is not None else self._get_audio_name()
-        self._acoustic_data_synced_dict = defaultdict()
+        self._acoustic_data_synced_dict = defaultdict(lambda: defaultdict(dict))
 
         self.synchronize()
     

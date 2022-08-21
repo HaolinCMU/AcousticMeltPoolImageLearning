@@ -12,6 +12,8 @@ import torch
 import torch.nn as nn
 import torch.utils
 
+from PARAM.IMG import SELECTED_VISUAL_DATA
+
 
 # PATHS & DIRECTORIES. 
 INPUT_WAVELET_SHORT_DIR = "C:/Users/hlinl/Desktop/acoustic_image_learning/data/new_dataset/wavelet_spectrums_short" # "F:/data/processed/acoustic/wavelet_spectrums_short"
@@ -26,12 +28,11 @@ TEST_LAYER_FOLDER_NAMELIST = ["Layer0213_P200_V0250_C001H001S0001",
                               "Layer0429_P100_V1200_C001H001S0001",
                               "Layer0197_P250_V1200_C001H001S0001",
                               "Layer0393_P330_V0500_C001H001S0001"] # Set as empty list if no test layer specified. 
-VISUAL_FEATURE_LIST = [0] # Default: [0, 1]. [0, 1, 2, 3] = [area, aspect ratio, P, V]. Depends on function `image_processing.collect_visual_data()`. 
 
 IMG_SIZE = 256 # Assume square image. Default: 256.  
 IN_CHANNEL_NUM = 3 # Default: 1. Can be 3. 
 FIRST_CONV_CHANNEL_NUM = 16 # Default: 64. 
-OUTPUT_DIM = len(VISUAL_FEATURE_LIST)
+OUTPUT_DIM = len(SELECTED_VISUAL_DATA)
 
 CONV_KERNEL_SIZE = 3 # (3,3). 
 CONV_STRIDE_SIZE = 1 # (1,1). 

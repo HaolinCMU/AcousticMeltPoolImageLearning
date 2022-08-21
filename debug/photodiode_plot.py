@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-photo = np.load('F:/data/raw/photodiode/Layer0021_P200_V0250_C001H001S0001.npy')[0,:] # Special case: Layer 345, 213
+photo = np.load('F:/data/raw/photodiode/Layer0065_P200_V1200_C001H001S0001.npy')[0,:] # Special case: Layer 345, 213
 photo_thrsld = 0.2
 begin = np.where(photo>=photo_thrsld)[0][0]
 end = np.where(photo>=photo_thrsld)[0][-1]

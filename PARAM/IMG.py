@@ -7,9 +7,21 @@ Created on Fri Jan 28 01:19:34 2022
 
 
 import os
+import re
 import numpy as np
 
-from PARAM.ACOUSTIC import * # 
+from PARAM.ACOUSTIC import * 
+
+
+def extract_process_param_fromImageFoldername(file_name, delimiter='_'):
+    """
+    """
+
+    item_list = file_name.split(delimiter)
+    P = list(map(int, re.findall(r'\d+', item_list[1])))[0] # Depends on the format of file name string. 
+    V = list(map(int, re.findall(r'\d+', item_list[2])))[0] # Depends on the format of file name string. 
+
+    return P, V
 
 
 INTENSITY_THRESHOLD = (0.8, 1.0) # Default: (0.8, 1.0). (0.6, 1.0).  The intensity threshold of melt pool & bright spatters. 
@@ -38,11 +50,15 @@ HU_MOMENTS_FEATURE_IND_LIST = [0,1,2,3,4,5,6] # Must be sorted.
 IMAGE_SAMPLING_RATE = 22000 # Presumed default: 22500 Hz. Estimated practical freq.: 22000 Hz. 
 IMAGE_WINDOW_SIZE = int(IMAGE_SAMPLING_RATE*AUDIO_CLIP_LENGTH_DP/AUDIO_SAMPLING_RATE)
 IMAGE_STRIDE_SIZE = int(IMAGE_SAMPLING_RATE*AUDIO_CLIP_STRIDE_DP/AUDIO_SAMPLING_RATE)
-VISUAL_DATA_FEATURIZATION_MODE = 'median' # Default: 'median'. 
+
+SELECTED_VISUAL_DATA = [('median', 'meltpool_area'),
+                        ('std', 'meltpool_area'), 
+                        ('median', 'P'), 
+                        ('std', 'V')] # keyword_list = [(`featurization_mode`, `feature_type`)]
+VISUAL_DATA_FEATURIZATION_MODE = list(set([keys[0] for keys in SELECTED_VISUAL_DATA])) # Default: 'median'. Options: 'mean', 'median', 'std', and 'sliding'. 
+VISUAL_DATA_FEATURE_LIST = list(set([keys[1] for keys in SELECTED_VISUAL_DATA])) # P and V are always contained in the end of the feature list. 
+
 VISUAL_DATA_EXTENSION = "npy"
 
-IS_AREA = True
-IS_ASPECT_RATIO = True
-IS_P = True
-IS_V = True
+IS_STANDARD = True
 

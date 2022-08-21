@@ -9,6 +9,7 @@ Created on Mon Dec  6 00:14:04 2021
 import os
 import glob
 import copy
+import gc
 
 import argparse
 import numpy as np
@@ -17,10 +18,12 @@ import matplotlib.image as mig
 import PIL
 
 from cmath import nan
+from collections import defaultdict
 from numpy.lib.stride_tricks import sliding_window_view
 from scipy.stats import skew, kurtosis
 from scipy.ndimage import rotate
 from torchvision import transforms
+from tqdm import tqdm
 
 from PARAM.IMG import *
 from PARAM.BASIC import *
@@ -715,7 +718,20 @@ class Frame(imgBasics.Image):
         """
         
         pass
-    
+
+
+    def visual_feature(self, keyword=None):
+        """
+        Used as an interface with acosutic data matching. 
+        """
+
+        if keyword is None: return None
+        elif keyword == "meltpool_area": return self.meltpool_area
+        elif keyword == "spatters_num": return self.spatters_num
+        elif keyword == "meltpool_aspect_ratio": return self.meltpool_aspect_ratio
+        elif keyword == "plume_area": return self.plume_area
+        else: raise ValueError("Unrecognizable feature keyword. ")
+
 
 # class MeltPool(imgBasics.Frame):
 class MeltPool(Frame):
@@ -733,71 +749,155 @@ class MeltPool(Frame):
         self.width = None # Float. 
 
 
-def collect_visual_data(img_dir, visual_dir, featurization_mode='median',
-                        is_area=True, is_aspect_ratio=True, is_P=True, is_V=True): # Add arguments for feature types. 
+# Visual data generator. 
+class Visuals(object):
     """
-    Current feature (exact order): [ Area | Aspect ratio | P | V ]. 
-    Collect as much as possible. 
+    Parse visual features for each clip/time window. 
     """
 
-    img_subfolder_list = os.listdir(img_dir)
+    def __init__(self, img_dir, visual_dir, feature_list=VISUAL_DATA_FEATURE_LIST, 
+                 featurization_mode_list=VISUAL_DATA_FEATURIZATION_MODE, selected_feature_list=SELECTED_VISUAL_DATA, 
+                 sample_length=IMAGE_WINDOW_SIZE, sample_stride=IMAGE_STRIDE_SIZE):
+        """
+        """
 
-    for folder in img_subfolder_list:
-        img_subfolder_dir = os.path.join(img_dir, folder)
-        img_path_list_temp = glob.glob(os.path.join(img_subfolder_dir, "*.{}".format(IMAGE_EXTENSION)))
+        self.img_dir = img_dir
+        self.visual_dir = visual_dir
+        self.feature_list = list(set(feature_list + ['P','V']))
+        self.featurization_mode_list = featurization_mode_list
+        self.selected_feature_list = selected_feature_list
+        self.sample_length = sample_length
+        self.sample_stride = sample_stride
 
-        P_temp, V_temp = extract_process_param_fromAcousticFilename(folder)
+        self._visual_data_dict = defaultdict(lambda: defaultdict(dict))
 
-        if is_area: area_list = copy.deepcopy([])
-        if is_aspect_ratio: aspect_ratio_list = copy.deepcopy([])
+        self._process()
+    
 
-        print("Start processing File: {}. ".format(folder))
-        print("------------------------------")
+    @staticmethod
+    def _featurize(data_mat, keyword=None, sample_axis=0, window_axis=2, feature_axis=3):
+        """
+        Input data array: 4-dim. Shape: (sample_num, 1, IMAGE_WINDOW_SIZE, feature_num). 
+        """
 
-        for ind, img_path in enumerate(img_path_list_temp):
+        if keyword is None: return None
+        elif keyword == 'mean': 
+            visual_data_mat = np.mean(data_mat, axis=window_axis).reshape(-1, data_mat.shape[feature_axis]) # Mean value. 
+        elif keyword == 'median':
+            visual_data_mat = np.median(data_mat, axis=window_axis).reshape(-1, data_mat.shape[feature_axis]) # Median value.
+        elif keyword == 'std':
+            visual_data_mat = np.std(data_mat, axis=window_axis).reshape(-1, data_mat.shape[feature_axis]) # Std value. 
+        else: raise ValueError("Unrecognizable featurization mode keyword. ")
+
+        return visual_data_mat
+
+
+    def _layer_parser(self, folder_name):
+        """
+        """
+
+        img_subfolder_dir = os.path.join(self.img_dir, folder_name)
+        img_path_list = glob.glob(os.path.join(img_subfolder_dir, "*.{}".format(IMAGE_EXTENSION)))
+
+        p, v = extract_process_param_fromImageFoldername(folder_name)
+        visual_data_mat = np.array([]).reshape(0, len(self.feature_list))
+
+        progress_heading_string = "Folder: {}\t| images processed".format(folder_name.split('_')[0])
+        for _, img_path in enumerate(tqdm(img_path_list, desc=progress_heading_string, ascii=False, ncols=50)):
             img_frame_temp = Frame(img_path)
-            if is_area: area_list.append(img_frame_temp.meltpool_area)
-            if is_aspect_ratio: aspect_ratio_list.append(img_frame_temp.meltpool_aspect_ratio)
+            img_feature_list_temp = copy.deepcopy([])
 
-            if (ind + 1) % 1000 == 0 or ind + 1 == len(img_path_list_temp): 
-                print("Img: {} | {}/{} is being processed. ".format(folder, ind+1, len(img_path_list_temp)))
+            # if (ind + 1) % 1000 == 0 or ind + 1 == len(img_path_list): 
+            #     print("Img: {} | {}/{} is being processed. ".format(folder_name, ind+1, len(img_path_list)))
 
-            del img_frame_temp # Release memory. 
+            for visual_feature_keyword in self.feature_list:
+                if visual_feature_keyword == 'P': img_feature_list_temp.append(p)
+                elif visual_feature_keyword == 'V': img_feature_list_temp.append(v)
+                else: img_feature_list_temp.append(img_frame_temp.visual_feature(keyword=visual_feature_keyword))
 
-        visual_data_mat_full = np.array([]).reshape(len(img_path_list_temp), 0)
-        if is_area: 
-            area_array = np.array(area_list).astype(float).reshape(-1,1)
-            visual_data_mat_full = np.hstack((visual_data_mat_full, area_array))
-        if is_aspect_ratio:
-            aspect_ratio_array = np.array(aspect_ratio_list).astype(float).reshape(-1,1)
-            visual_data_mat_full = np.hstack((visual_data_mat_full, aspect_ratio_array))
-        if is_P:
-            P_array = np.array([P_temp]*len(img_path_list_temp)).astype(float).reshape(-1,1)
-            visual_data_mat_full = np.hstack((visual_data_mat_full, P_array))
-        if is_V:
-            V_array = np.array([V_temp]*len(img_path_list_temp)).astype(float).reshape(-1,1)
-            visual_data_mat_full = np.hstack((visual_data_mat_full, V_array))
+            img_feature_array_temp = np.array(img_feature_list_temp).astype(float).reshape(1, -1)
+            visual_data_mat = np.vstack((visual_data_mat, img_feature_array_temp))
 
-        ###: Sliding window.
-        visual_data_block = sliding_window_view(visual_data_mat_full, # Shape: (sample_num, 1, IMAGE_WINDOW_SIZE, feature_num). 
-                                                window_shape=(IMAGE_WINDOW_SIZE, 
-                                                              visual_data_mat_full.shape[1]))[::IMAGE_STRIDE_SIZE,:,:,:]
-        if featurization_mode == 'mean': 
-            visual_data_mat = np.mean(visual_data_block, axis=2).reshape(-1, visual_data_mat_full.shape[1]) # Mean value. 
-        elif featurization_mode == 'median':
-            visual_data_mat = np.median(visual_data_block, axis=2).reshape(-1, visual_data_mat_full.shape[1]) # Median value. 
-        else: raise ValueError("Featurization mode not interpretable. ")
+            del img_frame_temp
+            gc.collect()
 
-        visual_subfolder_dir = os.path.join(visual_dir, folder)
+        visual_data_block = sliding_window_view(visual_data_mat, # Shape: (sample_num, 1, IMAGE_WINDOW_SIZE, feature_num). 
+                                                window_shape=(self.sample_length, 
+                                                              visual_data_mat.shape[1]))[::self.sample_stride,:,:,:]
+
+        for sample_ind in range(visual_data_block.shape[0]):
+            sample_key_temp = str(sample_ind).zfill(5)
+            for feature_mode_ind, feature_mode in enumerate(self.featurization_mode_list):
+                data_mat_temp = visual_data_block[sample_ind:sample_ind+1,:,:,:]
+                feature_arr_temp = self._featurize(data_mat=data_mat_temp, keyword=feature_mode) # Return 1d array - (feature_num,)
+                self._visual_data_dict[sample_key_temp][feature_mode_ind] = feature_arr_temp.reshape(-1)
+            
+            # if (sample_ind + 1) % 50 == 0 or sample_ind + 1 == visual_data_block.shape[0]: 
+            #     print("Clip: {} | {}/{} is being processed. ".format(folder_name, sample_ind+1, visual_data_block.shape[0]))
+        
+        del visual_data_mat, visual_data_block # Release memory. 
+        gc.collect()
+
+        
+    def _process(self):
+        """
+        """
+
+        img_subfolder_list = os.listdir(self.img_dir)
+        for subfolder_name in img_subfolder_list:
+            if subfolder_name == "Layer0361_P150_V0750_C001H001S0001": break # Delete after getting newly parsed data. 
+            
+            # print("Start processing Folder: {}. ".format(subfolder_name))
+            print("------------------------------")
+
+            self._layer_parser(folder_name=subfolder_name)
+            self._save_folder_offline(folder=subfolder_name)
+            self._visual_data_dict = defaultdict(lambda: defaultdict(dict)) # Reinitialize `visual_data_dict` to release memory. 
+
+            # print("End of processing Folder: {}. ".format(subfolder_name))
+            print("##############################")
+    
+
+    def _extract(self, key_list):
+        """
+        """
+
+        if len(key_list) != 3:
+            raise ValueError("`key_list` not properly defined. ")
+        
+        if len(self._visual_data_dict) == 0: 
+            raise ValueError("No data saved in buffer. Feature extraction failed. ")
+
+        sample_key, feature_mode_key, feature_key = key_list
+        feature_mode_ind = self.featurization_mode_list.index(feature_mode_key)
+        feature_ind = self.feature_list.index(feature_key)
+
+        return self._visual_data_dict[sample_key][feature_mode_ind][feature_ind] # Supposed to be a scalar value. 
+
+
+    def _save_folder_offline(self, folder):
+        """
+        """
+
+        if self.selected_feature_list == []: raise ValueError("No feature mode or feature type defined. ")
+        if len(self._visual_data_dict) == 0: raise ValueError("Visual dataset not generated. ")
+
+        visual_subfolder_dir = os.path.join(self.visual_dir, folder)
         if not os.path.isdir(visual_subfolder_dir): os.mkdir(visual_subfolder_dir)
 
-        for i in range(visual_data_mat.shape[0]):
-            visual_data_path_temp = os.path.join(visual_subfolder_dir, "{}_{}.{}".format(folder, str(i).zfill(5), 
-                                                                                         IMG.VISUAL_DATA_EXTENSION))
-            np.save(visual_data_path_temp, visual_data_mat[i,:])
-        
-        print("End of processing File: {}. ".format(folder))
-        print("##############################")
+        progress_heading_string = "Folder: {}\t| clips saved".format(folder.split('_')[0])
+        for _, sample_key in enumerate(tqdm(self._visual_data_dict.keys(), desc=progress_heading_string, ascii=False, ncols=50)):
+        # for i, sample_key in enumerate(self._visual_data_dict.keys()):
+            visual_sample_feature_list = copy.deepcopy([])
+            for keyword in self.selected_feature_list: # keyword is a tuple of two strings. 
+                visual_sample_feature_list.append(self._extract(key_list=[sample_key, keyword[0], keyword[1]]))
+
+            visual_sample_save_path = os.path.join(visual_subfolder_dir, 
+                                                   "{}_{}.{}".format(folder, sample_key, VISUAL_DATA_EXTENSION))
+            np.save(visual_sample_save_path, np.array(visual_sample_feature_list).astype(float).reshape(-1))
+
+            # if (i + 1) % 50 == 0 or i + 1 == len(self._visual_data_dict.keys()): 
+            #     print("Clips: {} | {}/{} processed and saved. ".format(folder, i+1, len(self._visual_data_dict.keys())))
 
 
 def visual_data_standard(visual_dir):

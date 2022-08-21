@@ -47,8 +47,8 @@ FRAME_CODER_MODEL_TYPE = 'VAE' # Options: 'VAE', 'AE'
 VAE_TRAINING_TOKEN = False
 # IMAGE_FEATURE_TYPE = 'Hu'
 
-ACOUSTIC_DATA_PROCESSING_TOKEN = True
-VISUAL_DATA_PROCESSING_TOKEN = False
+ACOUSTIC_DATA_PROCESSING_TOKEN = False
+VISUAL_DATA_PROCESSING_TOKEN = True
 ACOUSTIC_VISUAL_MODEL_TYPE = 'conv_2d'
 ACOUSTIC_VISUAL_TRAINING_TOKEN = False
 
@@ -110,6 +110,8 @@ if __name__ == "__main__":
     # Visual data processing. 
     parser.add_argument("--visual_data_subdir", default=BASIC.VISUAL_DATA_SUBDIR, type=str,
                         help="The directory of visual data. ")
+    parser.add_argument("--visual_data_is_standard", default=IMG.IS_STANDARD, type=bool,
+                        help="True: standardize visual features. False: not standardize visual features. ")
 
     # Acoustic to visual feature - cnn2d - param. 
     parser.add_argument("--cnn2d_input_data_dir", default=ML_2DCONV.INPUT_WAVELET_SHORT_DIR, type=str, 
@@ -256,12 +258,13 @@ if __name__ == "__main__":
 
     # Visual data processing. 
     if VISUAL_DATA_PROCESSING_TOKEN:
-        collect_visual_data(img_dir=args.img_data_subdir, visual_dir=args.visual_data_subdir, 
-                            featurization_mode=IMG.VISUAL_DATA_FEATURIZATION_MODE)
-        visual_mean_vect, visual_std_vect = visual_data_standard(visual_dir=args.visual_data_subdir)
+        visuals_obj = Visuals(img_dir=args.img_data_subdir, visual_dir=args.visual_data_subdir)
+        del visuals_obj # Release memory. 
 
-        np.save("visual_mean_vect.npy", visual_mean_vect)
-        np.save("visual_std_vect.npy", visual_std_vect)
+        if args.visual_data_is_standard:
+            visual_mean_vect, visual_std_vect = visual_data_standard(visual_dir=args.visual_data_subdir)
+            np.save("visual_mean_vect.npy", visual_mean_vect)
+            np.save("visual_std_vect.npy", visual_std_vect)
 
     ####################################################################################################################
 

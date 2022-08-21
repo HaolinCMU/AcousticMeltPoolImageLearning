@@ -20,7 +20,7 @@ def set_process_param_defect_dict(process_param_defect_file):
     """
     """
 
-    process_param_defect_dict = defaultdict()
+    process_param_defect_dict = defaultdict(lambda: defaultdict(dict))
 
     data = np.genfromtxt(process_param_defect_file, delimter=',').astype(int)
     for i in range(data.shape[0]):

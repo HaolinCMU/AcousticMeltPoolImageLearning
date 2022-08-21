@@ -62,9 +62,8 @@ class ACVD_SubDataset(Dataset):
 
             input_img = PIL.Image.fromarray(np.uint8(mig.imread(self.dataset[ind][0])*255)) # Read spectrum from a path.
             
-            visual_data_full = np.load(self.dataset[ind][1]).reshape(-1)
-            label_array = np.array([visual_data_full[i] for i in ML_2DCONV.VISUAL_FEATURE_LIST]).reshape(-1)
-            output_label = torch.from_numpy(label_array).to(self.dtype) # Read label vector from a path.
+            visual_data = np.load(self.dataset[ind][1]).reshape(-1)
+            output_label = torch.from_numpy(visual_data).to(self.dtype) # Read label vector from a path.
             
             if self.input_img_transform:
                 input_img = copy.deepcopy(self.input_img_transform(input_img).to(self.dtype)) # Transformed tensor of prescribed data type. [c, h, w]. 
@@ -100,10 +99,10 @@ class AcousticSpectrumVisualDataset(Dataset):
         self.input_image_transform = input_image_transform
         
         self._dataset_size = 0
-        self._train_data_dict = defaultdict()
-        self._valid_data_dict = defaultdict()
-        self._test_data_dict = defaultdict()
-        self._testlayers_data_dict = defaultdict()
+        self._train_data_dict = defaultdict(lambda: defaultdict(dict))
+        self._valid_data_dict = defaultdict(lambda: defaultdict(dict))
+        self._test_data_dict = defaultdict(lambda: defaultdict(dict))
+        self._testlayers_data_dict = defaultdict(lambda: defaultdict(dict))
 
         self._train_set_obj = None
         self._valid_set_obj = None
